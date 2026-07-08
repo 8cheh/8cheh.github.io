@@ -46,11 +46,9 @@
 
     <section id="posts" class="card">
       <h2>我的文章</h2>
-      <p class="meta">把文章放在仓库根目录的 <code>posts/</code> 目录（支持 Markdown (.md)、Word (.docx) 以及不可预览的 .doc）。页面会自动列出并支持预览（对 .docx）。</p>
 
       <div class="controls">
         <button id="refresh-posts" class="btn secondary">刷新文章列表</button>
-        <span class="meta">注意：GitHub API 有速率限制，必要时请稍后重试。</span>
       </div>
 
       <div id="posts-container">
@@ -60,7 +58,7 @@
       <div id="post-viewer"></div>
     </section>
 
-    <footer style="margin-top:28px;font-size:.9em;color:#666">页面可预览 Markdown 与 .docx（使用 mammoth.js 转换）。对于 .doc 文件仅提供下载（浏览器无法直接预览旧的 .doc 二进制格式）。</footer>
+    <footer style="margin-top:28px;font-size:.9em;color:#666">支持在线预览：Markdown (.md)、.docx；.doc 为旧二进制仅提供下载。</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
@@ -105,7 +103,7 @@
         try{
           const res = await fetch(`https://api.github.com/repos/${username}/${repoName}/contents/posts`);
           if(res.status===404){
-            container.innerHTML = '<p class="empty">未找到 posts/ 目录。用仓库创建一个 <code>posts/</code> 目录并上传 Markdown 或 Word (.docx) 文件即可显示。</p>';
+            container.innerHTML = '<p class="empty">未找到 posts/ 目录。</p>';
             return;
           }
           if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
@@ -147,45 +145,41 @@
             if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
             const md = await res.text();
             const html = marked.parse(md);
-            viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${escapeHtml(name)}</h3><div>${html}</div></article>`;
+            viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${escapeHtml(name)}</h3><div>${html}</div><p style="margin-top:8px"><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载</a></p></article>`;
             return;
           }
 
           if(ext === 'docx'){
-            // 使用 mammoth 在浏览器中转换 docx -> HTML
             try{
               const res = await fetch(file.download_url);
               if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
               const arrayBuffer = await res.arrayBuffer();
               const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer});
-              const html = result.value; // HTML string
-              viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${escapeHtml(name)}</h3><div>${html}</div></article>`;
+              const html = result.value;
+              viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${escapeHtml(name)}</h3><div>${html}</div><p style="margin-top:8px"><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载</a></p></article>`;
             }catch(err){
-              viewer.innerHTML = `<p class="empty">无法预览 .docx：${err.message}。你可以点击下面的下载链接手动打开。</p><p><a href="${file.download_url}" target="_blank" rel="noopener">下载 ${escapeHtml(name)}</a></p>`;
+              viewer.innerHTML = `<p class="empty">无法预览 .docx。请下载后打开：<a href="${file.download_url}" target="_blank" rel="noopener">下载</a></p>`;
             }
             return;
           }
 
           if(ext === 'pdf'){
-            // 直接嵌入 PDF
-            viewer.innerHTML = `<div style="margin-top:12px"><h3>${escapeHtml(name)}</h3><iframe class="doc-embed" src="${file.download_url}"></iframe></div>`;
+            viewer.innerHTML = `<div style="margin-top:12px"><h3>${escapeHtml(name)}</h3><iframe class="doc-embed" src="${file.download_url}"></iframe><p style="margin-top:8px"><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载</a></p></div>`;
             return;
           }
 
           if(ext === 'doc'){
-            // 旧的二进制 .doc 无法在浏览器直接预览
-            viewer.innerHTML = `<p class="empty">无法在浏览器中预览 .doc 格式（.doc 是旧的二进制格式）。请下载后使用 Office 或 LibreOffice 打开。</p><p><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载 ${escapeHtml(name)}</a></p>`;
+            viewer.innerHTML = `<p class="empty">无法在浏览器中预览 .doc，请下载后使用 Office 或 LibreOffice 打开：<a href="${file.download_url}" target="_blank" rel="noopener">下载</a></p>`;
             return;
           }
 
           // 默认：提供下载
-          viewer.innerHTML = `<p class="empty">此文件类型 (${escapeHtml(ext)}) 暂不支持直接预览。你可以下载查看：</p><p><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载 ${escapeHtml(name)}</a></p>`;
+          viewer.innerHTML = `<p class="empty">此文件类型 (${escapeHtml(ext)}) 暂不支持直接预览。你可以下载查看：<a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载</a></p>`;
         }catch(err){
           viewer.innerHTML = `<p class="empty">无法加载文章内容：${err.message}</p>`;
         }
       }
 
-      // 小工具：对 HTML 做最简单的转义（用于文件名）
       function escapeHtml(s){
         if(!s) return '';
         return s.replace(/[&<>"']/g, function(c){
