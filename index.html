@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>8cheh 的网站</title>
+    <style>
+      body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;max-width:900px;margin:24px auto;padding:0 16px;color:#111}
+      header{display:flex;align-items:center;gap:12px}
+      h1{margin:.2em 0}
+      section{margin-top:28px}
+      .card{border:1px solid #e6e6e6;border-radius:8px;padding:12px}
+      ul.repo-list, ul.post-list{list-style:none;padding:0;margin:0}
+      li.repo-item, li.post-item{padding:8px 6px;border-bottom:1px dashed #f0f0f0}
+      li.repo-item:last-child, li.post-item:last-child{border-bottom:none}
+      a{color:#0366d6;text-decoration:none}
+      a:hover{text-decoration:underline}
+      .meta{color:#666;font-size:.9em}
+      #post-viewer{margin-top:12px}
+      .empty{color:#666}
+      .controls{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+      .btn{background:#0366d6;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
+      .btn.secondary{background:#f6f8fa;color:#111;border:1px solid #e1e4e8}
+      pre{background:#0d1117;color:#c9d1d9;padding:12px;border-radius:6px;overflow:auto}
+      @media (prefers-color-scheme:dark){
+        body{background:#0b1220;color:#c9d1d9}
+        .card{border-color:#21262d}
+        a{color:#58a6ff}
+        pre{background:#010409}
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>8cheh 的首页</h1>
+    </header>
+
+    <section id="repos" class="card">
+      <h2>我的仓库</h2>
+      <p class="meta">自动从 GitHub 列出，点击仓库名称可前往。</p>
+      <div id="repos-container">
+        <p class="empty">正在加载仓库……</p>
+      </div>
+    </section>
+
+    <section id="posts" class="card">
+      <h2>我的文章</h2>
+      <p class="meta">把 Markdown 文件放在仓库根目录的 <code>posts/</code> 目录（例如 <code>posts/hello.md</code>），页面会自动列出并支持预览。</p>
+
+      <div class="controls">
+        <button id="refresh-posts" class="btn secondary">刷新文章列表</button>
+        <span class="meta">注意：GitHub API 有速率限制，必要时请稍后重试。</span>
+      </div>
+
+      <div id="posts-container">
+        <p class="empty">正在加载文章列表……</p>
+      </div>
+
+      <div id="post-viewer"></div>
+    </section>
+
+    <footer style="margin-top:28px;font-size:.9em;color:#666">页面自动取得用户仓库与 posts/ 目录中的文件；如果看不到文章，请在仓库中新建 <code>posts/</code> 目录并提交 Markdown 文件。</footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      const username = '8cheh';
+      // 列出用户仓库
+      async function loadRepos(){
+        const container = document.getElementById('repos-container');
+        container.innerHTML = '<p class="empty">正在加载仓库……</p>';
+        try{
+          const res = await fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`);
+          if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          const repos = await res.json();
+          if(!Array.isArray(repos) || repos.length===0){
+            container.innerHTML = '<p class="empty">未找到仓库。</p>';
+            return;
+          }
+          const ul = document.createElement('ul'); ul.className = 'repo-list';
+          repos.forEach(r=>{
+            const li = document.createElement('li'); li.className='repo-item';
+            const a = document.createElement('a'); a.href = r.html_url; a.target='_blank'; a.rel='noopener';
+            a.textContent = r.name;
+            const meta = document.createElement('div'); meta.className='meta';
+            meta.textContent = (r.description? r.description + ' · ' : '') + '⭐ ' + r.stargazers_count + ' · 更新: ' + new Date(r.updated_at).toLocaleString();
+            li.appendChild(a);
+            li.appendChild(meta);
+            ul.appendChild(li);
+          });
+          container.innerHTML = '';
+          container.appendChild(ul);
+        }catch(err){
+          container.innerHTML = `<p class="empty">无法加载仓库：${err.message}</p>`;
+        }
+      }
+
+      // 列出 posts 目录下的文件
+      async function loadPosts(){
+        const container = document.getElementById('posts-container');
+        container.innerHTML = '<p class="empty">正在加载文章列表……</p>';
+        try{
+          const res = await fetch(`https://api.github.com/repos/${username}/${username}.github.io/contents/posts`);
+          if(res.status===404){
+            container.innerHTML = '<p class="empty">未找到 posts/ 目录。用仓库创建一个 <code>posts/</code> 目录并上传 Markdown 文件即可显示。</p>';
+            return;
+          }
+          if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          const files = await res.json();
+          if(!Array.isArray(files) || files.length===0){
+            container.innerHTML = '<p class="empty">posts/ 目录中没有文件。</p>';
+            return;
+          }
+          const ul = document.createElement('ul'); ul.className='post-list';
+          files.filter(f=>f.type==='file').forEach(f=>{
+            const li = document.createElement('li'); li.className='post-item';
+            const a = document.createElement('a'); a.href='#'; a.textContent=f.name; a.dataset.download = f.download_url;
+            a.addEventListener('click', async (e)=>{
+              e.preventDefault();
+              viewPost(f);
+            });
+            li.appendChild(a);
+            const meta = document.createElement('div'); meta.className='meta'; meta.textContent = f.size + ' bytes';
+            li.appendChild(meta);
+            ul.appendChild(li);
+          });
+          container.innerHTML=''; container.appendChild(ul);
+        }catch(err){
+          container.innerHTML = `<p class="empty">无法加载文章列表：${err.message}</p>`;
+        }
+      }
+
+      async function viewPost(file){
+        const viewer = document.getElementById('post-viewer');
+        viewer.innerHTML = '<p class="empty">加载文章中……</p>';
+        try{
+          const res = await fetch(file.download_url);
+          if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+          const md = await res.text();
+          const html = marked.parse(md);
+          viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${file.name}</h3><div>${html}</div></article>`;
+        }catch(err){
+          viewer.innerHTML = `<p class="empty">无法加载文章内容：${err.message}</p>`;
+        }
+      }
+
+      document.getElementById('refresh-posts').addEventListener('click', ()=>{ loadPosts(); document.getElementById('post-viewer').innerHTML=''; });
+
+      // 初始化
+      loadRepos();
+      loadPosts();
+    </script>
+  </body>
+</html>
