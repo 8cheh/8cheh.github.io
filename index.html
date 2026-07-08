@@ -22,6 +22,7 @@
       .btn{background:#0366d6;color:#fff;padding:6px 10px;border-radius:6px;border:none;cursor:pointer}
       .btn.secondary{background:#f6f8fa;color:#111;border:1px solid #e1e4e8}
       pre{background:#0d1117;color:#c9d1d9;padding:12px;border-radius:6px;overflow:auto}
+      iframe.doc-embed{width:100%;height:600px;border:1px solid #e6e6e6;border-radius:6px}
       @media (prefers-color-scheme:dark){
         body{background:#0b1220;color:#c9d1d9}
         .card{border-color:#21262d}
@@ -45,7 +46,7 @@
 
     <section id="posts" class="card">
       <h2>我的文章</h2>
-      <p class="meta">把 Markdown 文件放在仓库根目录的 <code>posts/</code> 目录（例如 <code>posts/hello.md</code>），页面会自动列出并支持预览。</p>
+      <p class="meta">把文章放在仓库根目录的 <code>posts/</code> 目录（支持 Markdown (.md)、Word (.docx) 以及不可预览的 .doc）。页面会自动列出并支持预览（对 .docx）。</p>
 
       <div class="controls">
         <button id="refresh-posts" class="btn secondary">刷新文章列表</button>
@@ -59,11 +60,14 @@
       <div id="post-viewer"></div>
     </section>
 
-    <footer style="margin-top:28px;font-size:.9em;color:#666">页面自动取得用户仓库与 posts/ 目录中的文件；如果看不到文章，请在仓库中新建 <code>posts/</code> 目录并提交 Markdown 文件。</footer>
+    <footer style="margin-top:28px;font-size:.9em;color:#666">页面可预览 Markdown 与 .docx（使用 mammoth.js 转换）。对于 .doc 文件仅提供下载（浏览器无法直接预览旧的 .doc 二进制格式）。</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
     <script>
       const username = '8cheh';
+      const repoName = `${username}.github.io`;
+
       // 列出用户仓库
       async function loadRepos(){
         const container = document.getElementById('repos-container');
@@ -94,14 +98,14 @@
         }
       }
 
-      // 列出 posts 目录下的文件
+      // 列出 posts 目录下的文件（支持 .md .mdown .markdown .docx .doc .pdf）
       async function loadPosts(){
         const container = document.getElementById('posts-container');
         container.innerHTML = '<p class="empty">正在加载文章列表……</p>';
         try{
-          const res = await fetch(`https://api.github.com/repos/${username}/${username}.github.io/contents/posts`);
+          const res = await fetch(`https://api.github.com/repos/${username}/${repoName}/contents/posts`);
           if(res.status===404){
-            container.innerHTML = '<p class="empty">未找到 posts/ 目录。用仓库创建一个 <code>posts/</code> 目录并上传 Markdown 文件即可显示。</p>';
+            container.innerHTML = '<p class="empty">未找到 posts/ 目录。用仓库创建一个 <code>posts/</code> 目录并上传 Markdown 或 Word (.docx) 文件即可显示。</p>';
             return;
           }
           if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
@@ -119,7 +123,9 @@
               viewPost(f);
             });
             li.appendChild(a);
-            const meta = document.createElement('div'); meta.className='meta'; meta.textContent = f.size + ' bytes';
+            const meta = document.createElement('div'); meta.className='meta';
+            const ext = (f.name.split('.').pop() || '').toLowerCase();
+            meta.textContent = ext + ' · ' + f.size + ' bytes';
             li.appendChild(meta);
             ul.appendChild(li);
           });
@@ -133,14 +139,58 @@
         const viewer = document.getElementById('post-viewer');
         viewer.innerHTML = '<p class="empty">加载文章中……</p>';
         try{
-          const res = await fetch(file.download_url);
-          if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
-          const md = await res.text();
-          const html = marked.parse(md);
-          viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${file.name}</h3><div>${html}</div></article>`;
+          const name = file.name || '';
+          const ext = (name.split('.').pop() || '').toLowerCase();
+
+          if(['md','markdown','mdown'].includes(ext)){
+            const res = await fetch(file.download_url);
+            if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+            const md = await res.text();
+            const html = marked.parse(md);
+            viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${escapeHtml(name)}</h3><div>${html}</div></article>`;
+            return;
+          }
+
+          if(ext === 'docx'){
+            // 使用 mammoth 在浏览器中转换 docx -> HTML
+            try{
+              const res = await fetch(file.download_url);
+              if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+              const arrayBuffer = await res.arrayBuffer();
+              const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer});
+              const html = result.value; // HTML string
+              viewer.innerHTML = `<article class="card" style="margin-top:12px"><h3>${escapeHtml(name)}</h3><div>${html}</div></article>`;
+            }catch(err){
+              viewer.innerHTML = `<p class="empty">无法预览 .docx：${err.message}。你可以点击下面的下载链接手动打开。</p><p><a href="${file.download_url}" target="_blank" rel="noopener">下载 ${escapeHtml(name)}</a></p>`;
+            }
+            return;
+          }
+
+          if(ext === 'pdf'){
+            // 直接嵌入 PDF
+            viewer.innerHTML = `<div style="margin-top:12px"><h3>${escapeHtml(name)}</h3><iframe class="doc-embed" src="${file.download_url}"></iframe></div>`;
+            return;
+          }
+
+          if(ext === 'doc'){
+            // 旧的二进制 .doc 无法在浏览器直接预览
+            viewer.innerHTML = `<p class="empty">无法在浏览器中预览 .doc 格式（.doc 是旧的二进制格式）。请下载后使用 Office 或 LibreOffice 打开。</p><p><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载 ${escapeHtml(name)}</a></p>`;
+            return;
+          }
+
+          // 默认：提供下载
+          viewer.innerHTML = `<p class="empty">此文件类型 (${escapeHtml(ext)}) 暂不支持直接预览。你可以下载查看：</p><p><a class="btn" href="${file.download_url}" target="_blank" rel="noopener">下载 ${escapeHtml(name)}</a></p>`;
         }catch(err){
           viewer.innerHTML = `<p class="empty">无法加载文章内容：${err.message}</p>`;
         }
+      }
+
+      // 小工具：对 HTML 做最简单的转义（用于文件名）
+      function escapeHtml(s){
+        if(!s) return '';
+        return s.replace(/[&<>"']/g, function(c){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
       }
 
       document.getElementById('refresh-posts').addEventListener('click', ()=>{ loadPosts(); document.getElementById('post-viewer').innerHTML=''; });
