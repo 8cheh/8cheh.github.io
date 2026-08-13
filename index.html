@@ -92,13 +92,194 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
     <script>
+      // Basic config
       const username = '8cheh';
       const repoName = `${username}.github.io`;
+      const apiBase = 'https://api.github.com';
+      const rawBase = `https://raw.githubusercontent.com/${username}/${repoName}/main/`;
 
+      // caches
       let reposCache = [];
       let postsCache = [];
 
-      // utils
+      // helpers
       function $(id){ return document.getElementById(id); }
-      function debounce(fn, ms=250){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-      function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>\
+      function setHTML(id, html){ const el = $(id); if(el) el.innerHTML = html; }
+      function mk(tag, props={}, ...children){ const e = document.createElement(tag); Object.assign(e, props); for(const c of children) if(typeof c === 'string') e.appendChild(document.createTextNode(c)); else if(c) e.appendChild(c); return e; }
+
+      async function fetchJson(url, options={}){
+        try{
+          const res = await fetch(url, Object.assign({headers:{'Accept':'application/vnd.github.v3+json'}}, options));
+          if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+          return await res.json();
+        }catch(err){
+          throw err;
+        }
+      }
+
+      async function fetchArrayBuffer(url){
+        const res = await fetch(url);
+        if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        return await res.arrayBuffer();
+      }
+
+      // load repos
+      async function loadRepos(){
+        const container = $('repos-container');
+        container.innerHTML = '<p class="empty">加载中…</p>';
+        try{
+          const url = `${apiBase}/users/${username}/repos?per_page=100`;
+          const data = await fetchJson(url);
+          reposCache = Array.isArray(data)? data : [];
+          renderRepos(reposCache);
+        }catch(err){
+          container.innerHTML = `<p class="empty">加载仓库失败：${err.message}</p>`;
+          console.error('loadRepos error', err);
+        }
+      }
+
+      function renderRepos(list){
+        const container = $('repos-container');
+        if(!list || list.length === 0){ container.innerHTML = '<p class="empty">没有仓库</p>'; return; }
+        const ul = document.createElement('ul'); ul.className = 'repo-list';
+        list.forEach(r=>{
+          const li = mk('li',{className:'repo-item'});
+          const left = mk('div');
+          const a = mk('a',{href:r.html_url,target:'_blank'}, r.full_name);
+          const desc = mk('div',{className:'meta'}, r.description || '');
+          left.appendChild(a); left.appendChild(desc);
+          const right = mk('div');
+          const stars = mk('div',{className:'meta'}, `⭐ ${r.stargazers_count || 0}`);
+          right.appendChild(stars);
+          li.appendChild(left); li.appendChild(right);
+          ul.appendChild(li);
+        });
+        container.innerHTML = '';
+        container.appendChild(ul);
+      }
+
+      // load posts (list files in repo root)
+      async function loadPosts(){
+        const container = $('posts-container');
+        container.innerHTML = '<p class="empty">加载中…</p>';
+        try{
+          const url = `${apiBase}/repos/${username}/${repoName}/contents`;
+          const data = await fetchJson(url);
+          // filter files only
+          postsCache = (Array.isArray(data)? data.filter(f=>f.type==='file') : []).map(f=>({
+            name:f.name, path:f.path, download_url:f.download_url, size:f.size
+          }));
+          renderPosts(postsCache);
+        }catch(err){
+          container.innerHTML = `<p class="empty">加载文章失败：${err.message}</p>`;
+          console.error('loadPosts error', err);
+        }
+      }
+
+      function renderPosts(list){
+        const container = $('posts-container');
+        if(!list || list.length === 0){ container.innerHTML = '<p class="empty">没有文章文件</p>'; return; }
+        const ul = document.createElement('ul'); ul.className = 'post-list';
+        list.forEach(p=>{
+          const li = mk('li',{className:'post-item'});
+          const left = mk('div');
+          const a = mk('a',{href:'#', 'data-path':p.path}, p.name);
+          a.addEventListener('click', (e)=>{ e.preventDefault(); openPost(p); });
+          const meta = mk('div',{className:'meta'}, `${(p.size||0)} bytes`);
+          left.appendChild(a); left.appendChild(meta);
+          li.appendChild(left);
+          ul.appendChild(li);
+        });
+        container.innerHTML = '';
+        container.appendChild(ul);
+      }
+
+      // open post and preview according to extension
+      async function openPost(p){
+        const viewer = $('post-viewer');
+        viewer.innerHTML = '<p class="empty">加载中…</p>';
+        const ext = (p.name.split('.').pop()||'').toLowerCase();
+        try{
+          if(ext === 'md' || ext === 'markdown'){
+            // fetch raw markdown and render
+            const rawUrl = p.download_url || (rawBase + p.path);
+            const res = await fetch(rawUrl);
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            const txt = await res.text();
+            viewer.innerHTML = '';
+            const div = mk('div');
+            div.innerHTML = marked.parse(txt);
+            viewer.appendChild(div);
+          }else if(ext === 'docx'){
+            // fetch as arraybuffer and convert using mammoth
+            const url = p.download_url || (rawBase + p.path);
+            const ab = await fetchArrayBuffer(url);
+            const result = await mammoth.convertToHtml({arrayBuffer:ab});
+            viewer.innerHTML = result.value;
+          }else if(ext === 'pdf'){
+            const iframe = mk('iframe',{className:'doc-embed', src: p.download_url || (rawBase + p.path)});
+            viewer.innerHTML = '';
+            viewer.appendChild(iframe);
+          }else{
+            // other types: show raw text if small
+            const rawUrl = p.download_url || (rawBase + p.path);
+            const res = await fetch(rawUrl);
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            const txt = await res.text();
+            viewer.innerHTML = '';
+            const pre = mk('pre'); pre.textContent = txt.substring(0, 20000);
+            viewer.appendChild(pre);
+          }
+        }catch(err){
+          viewer.innerHTML = `<p class="empty">预览失败：${err.message}</p>`;
+          console.error('openPost error', err);
+        }
+      }
+
+      // wire controls
+      function wire(){
+        $('refresh-repos').addEventListener('click', ()=>loadRepos());
+        $('refresh-posts').addEventListener('click', ()=>loadPosts());
+        $('repo-search').addEventListener('input', debounce(()=>{
+          const q = $('repo-search').value.trim().toLowerCase();
+          const filter = $('repo-filter').value;
+          let list = reposCache.slice();
+          if(filter === 'forks') list = list.filter(r=>r.fork);
+          if(filter === 'sources') list = list.filter(r=>!r.fork);
+          if(q) list = list.filter(r=> (r.name||'').toLowerCase().includes(q) || (r.description||'').toLowerCase().includes(q));
+          renderRepos(list);
+        }, 200));
+
+        $('repo-filter').addEventListener('change', ()=>{
+          const evt = new Event('input'); $('repo-search').dispatchEvent(evt);
+        });
+
+        $('post-search').addEventListener('input', debounce(()=>{
+          const q = $('post-search').value.trim().toLowerCase();
+          const type = $('post-type').value;
+          let list = postsCache.slice();
+          if(type !== 'all') list = list.filter(p=> p.name.toLowerCase().endsWith('.'+type));
+          if(q) list = list.filter(p=> p.name.toLowerCase().includes(q));
+          renderPosts(list);
+        },200));
+
+        $('post-type').addEventListener('change', ()=>{ $('post-search').dispatchEvent(new Event('input')); });
+        $('post-sort').addEventListener('change', ()=>{
+          const v = $('post-sort').value;
+          let list = postsCache.slice();
+          if(v === 'name') list.sort((a,b)=>a.name.localeCompare(b.name));
+          if(v === 'size') list.sort((a,b)=> (a.size||0)-(b.size||0));
+          renderPosts(list);
+        });
+      }
+
+      // init
+      document.addEventListener('DOMContentLoaded', ()=>{
+        wire();
+        loadRepos();
+        loadPosts();
+      });
+
+    </script>
+  </body>
+</html>
