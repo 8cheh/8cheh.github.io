@@ -3,59 +3,62 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>8cheh · 个人空间</title>
+    <title>8cheh · 学术主页</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
         --font-sans: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+        --font-serif: "Source Serif 4", "Noto Serif SC", Georgia, "Songti SC", serif;
         --font-mono: "JetBrains Mono", monospace;
-        --radius-lg: 20px;
-        --radius-md: 14px;
-        --radius-sm: 10px;
+        --radius-lg: 8px;
+        --radius-md: 8px;
+        --radius-sm: 6px;
         --ease: cubic-bezier(0.22, 1, 0.36, 1);
       }
+      /* dark: 墨色稿纸 */
       [data-theme="dark"] {
-        --bg: #0a0e17;
-        --bg-soft: #101624;
-        --surface: rgba(255, 255, 255, 0.04);
-        --surface-strong: rgba(255, 255, 255, 0.07);
-        --border: rgba(255, 255, 255, 0.09);
-        --border-hover: rgba(255, 255, 255, 0.22);
-        --text: #e8edf7;
-        --text-dim: #94a3b8;
-        --text-faint: #5b6b80;
-        --accent: #7c9cff;
-        --accent-2: #c79bff;
-        --accent-3: #5eead4;
-        --glow-1: rgba(124, 156, 255, 0.22);
-        --glow-2: rgba(199, 155, 255, 0.16);
-        --glow-3: rgba(94, 234, 212, 0.12);
-        --shadow: 0 20px 50px -18px rgba(0, 0, 0, 0.65);
-        --code-bg: #0d1322;
+        --bg: #12141a;
+        --bg-soft: #171a21;
+        --surface: rgba(255, 255, 255, 0.035);
+        --surface-strong: rgba(255, 255, 255, 0.065);
+        --border: rgba(230, 230, 220, 0.14);
+        --border-hover: rgba(230, 230, 220, 0.32);
+        --text: #e6e4dd;
+        --text-dim: #a7a69d;
+        --text-faint: #74787f;
+        --accent: #9db9dc;
+        --accent-2: #c9a15c;
+        --accent-3: #8aa89b;
+        --glow-1: rgba(157, 185, 220, 0.16);
+        --glow-2: rgba(201, 161, 92, 0.1);
+        --glow-3: rgba(138, 168, 155, 0.1);
+        --shadow: 0 12px 30px -20px rgba(0, 0, 0, 0.8);
+        --code-bg: #0f1116;
       }
+      /* light: 米白纸本 */
       [data-theme="light"] {
-        --bg: #f4f6fc;
-        --bg-soft: #eceffb;
-        --surface: rgba(255, 255, 255, 0.75);
-        --surface-strong: rgba(255, 255, 255, 0.95);
-        --border: rgba(15, 30, 60, 0.1);
-        --border-hover: rgba(70, 100, 180, 0.4);
-        --text: #17233d;
-        --text-dim: #55637d;
-        --text-faint: #8595ad;
-        --accent: #4066e0;
-        --accent-2: #8b4fd6;
-        --accent-3: #0ea5a0;
-        --glow-1: rgba(64, 102, 224, 0.16);
-        --glow-2: rgba(139, 79, 214, 0.12);
-        --glow-3: rgba(14, 165, 160, 0.1);
-        --shadow: 0 20px 45px -18px rgba(40, 60, 120, 0.28);
-        --code-bg: #101624;
+        --bg: #fbfaf6;
+        --bg-soft: #f4f1ea;
+        --surface: rgba(255, 255, 255, 0.72);
+        --surface-strong: #ffffff;
+        --border: rgba(30, 34, 44, 0.14);
+        --border-hover: rgba(30, 34, 44, 0.34);
+        --text: #1c2029;
+        --text-dim: #525a68;
+        --text-faint: #838b99;
+        --accent: #2f4f7f;
+        --accent-2: #8a6a2f;
+        --accent-3: #3f6b5f;
+        --glow-1: rgba(47, 79, 127, 0.1);
+        --glow-2: rgba(138, 106, 47, 0.09);
+        --glow-3: rgba(63, 107, 95, 0.08);
+        --shadow: 0 12px 26px -20px rgba(30, 40, 70, 0.45);
+        --code-bg: #1c2029;
       }
 
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -427,6 +430,139 @@
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
       }
+
+      /* ==================== academic layer ==================== */
+      body { -webkit-font-smoothing: antialiased; }
+      h1, h2, h3, .brand-name, .section-title, .edu-school, .repo-link, .post-name {
+        font-family: var(--font-serif);
+      }
+      .wrap { max-width: 960px; padding: 0 26px 80px; }
+
+      /* ruled-paper backdrop instead of glow blobs */
+      .backdrop .blob { display: none; }
+      .backdrop::before {
+        content: ""; position: absolute; inset: 0;
+        background-image:
+          linear-gradient(var(--border) 1px, transparent 1px),
+          linear-gradient(90deg, var(--border) 1px, transparent 1px);
+        background-size: 52px 52px, 52px 52px;
+        -webkit-mask-image: radial-gradient(120% 78% at 50% 0%, #000 4%, transparent 70%);
+        mask-image: radial-gradient(120% 78% at 50% 0%, #000 4%, transparent 70%);
+        opacity: 0.7;
+      }
+      .grain { opacity: 0.03; }
+
+      /* top bar */
+      .topbar { border-bottom: 1px solid var(--border); background: linear-gradient(to bottom, var(--bg) 74%, transparent); }
+      .brand-logo {
+        border-radius: 6px; font-family: var(--font-serif);
+        background: var(--surface-strong); color: var(--accent);
+        border: 1px solid var(--border); box-shadow: none;
+      }
+      .brand:hover .brand-logo { transform: none; border-color: var(--border-hover); }
+      .brand-name { font-size: 1.06rem; }
+      .brand-sub { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; }
+      .icon-btn { border-radius: 6px; font-size: 0.95rem; }
+      .icon-btn:hover { transform: none; box-shadow: none; border-color: var(--border-hover); background: var(--surface-strong); }
+
+      /* hero */
+      .hero { gap: 30px; padding: 50px 0 38px; border-bottom: 1px solid var(--border); }
+      .avatar-ring::before { inset: -5px; background: linear-gradient(140deg, var(--accent), var(--accent-2)); animation: none; }
+      .avatar { width: 104px; height: 104px; border-width: 4px; }
+      .avatar:hover { transform: none; }
+      .hero-kicker { font-family: var(--font-mono); font-size: 0.71rem; letter-spacing: 0.2em; color: var(--accent); }
+      .pulse-dot { background: var(--accent-2); animation: none; }
+      .hero h1 { font-size: clamp(1.9rem, 4.6vw, 2.7rem); letter-spacing: -0.005em; }
+      .grad-text {
+        background: none; -webkit-background-clip: initial; background-clip: initial;
+        color: var(--accent); -webkit-text-fill-color: currentColor; animation: none;
+      }
+      .hero p { max-width: 560px; font-size: 0.95rem; line-height: 1.85; }
+      .hero-stats { gap: 34px; }
+      .stat b { font-family: var(--font-serif); font-size: 1.55rem; }
+      .stat span { font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; }
+
+      /* sections */
+      .section { margin: 38px 0 10px; }
+      .section-title {
+        display: flex; align-items: baseline; gap: 12px;
+        font-size: 1.22rem; font-weight: 700; margin: 0 0 6px; padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .section-title .en {
+        margin-left: auto; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 400;
+        letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint);
+      }
+
+      /* education timeline */
+      .edu-list { list-style: none; margin: 0; }
+      .edu-item {
+        display: grid; grid-template-columns: 200px 1fr; gap: 20px;
+        padding: 20px 0; border-bottom: 1px solid var(--border);
+      }
+      .edu-item:last-child { border-bottom: none; }
+      .edu-period { font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-dim); padding-top: 5px; white-space: nowrap; }
+      .edu-now { color: var(--accent); }
+      .edu-main { position: relative; padding-left: 20px; }
+      .edu-main::before {
+        content: ""; position: absolute; left: 0; top: 0.5em;
+        width: 7px; height: 7px; border-radius: 50%;
+        border: 2px solid var(--accent); background: var(--bg);
+      }
+      .edu-main::after {
+        content: ""; position: absolute; left: 4.5px; top: calc(0.5em + 13px); bottom: -21px;
+        width: 1px; background: var(--border);
+      }
+      .edu-item:last-child .edu-main::after { display: none; }
+      .edu-school { font-size: 1.05rem; font-weight: 700; }
+      .edu-degree { margin-top: 6px; font-size: 0.9rem; color: var(--text-dim); }
+      .edu-major { margin-top: 5px; font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-faint); }
+      .edu-major b { color: var(--text); font-weight: 500; }
+
+      /* toolbar: underline tabs */
+      .toolbar { margin: 26px 0 22px; gap: 12px; }
+      .tabs {
+        background: transparent; border: none; border-bottom: 1px solid var(--border);
+        border-radius: 0; padding: 0; gap: 4px;
+      }
+      .tab {
+        border-radius: 0; padding: 10px 16px; font-size: 0.87rem;
+        border-bottom: 2px solid transparent; margin-bottom: -1px;
+      }
+      .tab.active { background: none; box-shadow: none; color: var(--text); border-bottom-color: var(--accent); }
+      .tab:not(.active):hover { background: var(--surface); }
+      .search-box { border-radius: 6px; padding: 8px 14px; }
+      .search-box:focus-within { box-shadow: none; border-color: var(--accent); }
+      select.chip { border-radius: 6px; padding: 8px 32px 8px 14px; }
+
+      /* cards */
+      .grid { gap: 14px; }
+      .card { backdrop-filter: none; padding: 18px; }
+      .card:hover { transform: translateY(-2px); }
+      .card-topline { height: 2px; opacity: 0.55; }
+      .repo-link { font-size: 1rem; }
+      .fork-badge { border-radius: 4px; font-family: var(--font-mono); letter-spacing: 0.04em; }
+      .repo-foot, .post-meta { font-size: 0.74rem; }
+      .post-thumb { height: 92px; font-size: 1.9rem; border: 1px solid var(--border); }
+      .post-thumb::after { display: none; }
+      .thumb-pdf, .thumb-doc, .thumb-md, .thumb-img, .thumb-other { background: var(--surface-strong); }
+      .ext-tag { border-radius: 4px; font-family: var(--font-mono); font-size: 0.64rem; }
+
+      /* drawer & misc */
+      .drawer { box-shadow: -20px 0 50px rgba(0, 0, 0, 0.35); }
+      .drawer-body { padding: 26px 28px; }
+      .md-body { font-family: var(--font-serif); font-size: 1rem; line-height: 1.9; }
+      .toast { border-radius: 6px; font-size: 0.82rem; }
+      footer { margin-top: 56px; font-family: var(--font-mono); font-size: 0.73rem; }
+      footer a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-hover); }
+
+      @media (max-width: 620px) {
+        .tabs { justify-content: flex-start; }
+        .edu-item { grid-template-columns: 1fr; gap: 10px; }
+        .edu-period { padding-top: 0; }
+        .edu-main::after { display: none; }
+        .section-title .en { display: none; }
+      }
     </style>
   </head>
   <body>
@@ -442,7 +578,7 @@
           <span class="brand-logo">8c</span>
           <span>
             <span class="brand-name">8cheh</span><br />
-            <span class="brand-sub">github.io · 个人空间</span>
+            <span class="brand-sub">github.io · 学术主页</span>
           </span>
         </a>
         <div class="top-actions">
@@ -466,9 +602,9 @@
           />
         </div>
         <div class="hero-text">
-          <div class="hero-kicker"><span class="pulse-dot"></span> ONLINE · 持续更新中</div>
+          <div class="hero-kicker"><span class="pulse-dot"></span> Xi'an Jiaotong University</div>
           <h1>你好，我是 <span class="grad-text">8cheh</span></h1>
-          <p>这里是我的数字角落 —— 收集我的开源仓库与文档资料。点击下方标签页探索，所有内容支持实时搜索与在线预览。</p>
+          <p>个人学术主页 —— 在此整理我的开源仓库、课程资料与文档。内容持续更新，支持实时检索与在线预览。</p>
           <div class="hero-stats">
             <div class="stat"><b id="stat-repos">–</b><span>公开仓库</span></div>
             <div class="stat"><b id="stat-posts">–</b><span>站内文件</span></div>
@@ -476,6 +612,29 @@
           </div>
         </div>
       </header>
+
+      <!-- education -->
+      <section class="section" id="education">
+        <h2 class="section-title">教育经历<span class="en">Education</span></h2>
+        <ol class="edu-list">
+          <li class="edu-item">
+            <div class="edu-period">2026.09 — <span class="edu-now">Present</span></div>
+            <div class="edu-main">
+              <h3 class="edu-school">Xi'an Jiaotong University (XJTU)</h3>
+              <p class="edu-degree">Undergraduate Study · Bachelor's Degree</p>
+              <p class="edu-major">Major: <b>Embodied Artificial Intelligence</b></p>
+            </div>
+          </li>
+          <li class="edu-item">
+            <div class="edu-period">2024.09 — 2026.06</div>
+            <div class="edu-main">
+              <h3 class="edu-school">Xi'an Jiaotong University (XJTU)</h3>
+              <p class="edu-degree">Preparatory Program</p>
+              <p class="edu-major">Major: <b>Gifted Young Program</b></p>
+            </div>
+          </li>
+        </ol>
+      </section>
 
       <!-- toolbar -->
       <div class="toolbar">
