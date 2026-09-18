@@ -494,29 +494,24 @@
         letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint);
       }
 
-      /* education timeline */
-      .edu-list { list-style: none; margin: 0; }
+      /* education: bar rows */
+      .edu-list { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 10px; }
       .edu-item {
-        display: grid; grid-template-columns: 200px 1fr; gap: 20px;
-        padding: 20px 0; border-bottom: 1px solid var(--border);
+        display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 20px; align-items: center;
+        padding: 15px 20px 15px 17px;
+        background: var(--surface);
+        box-shadow: inset 3px 0 0 var(--accent);
+        border-radius: 3px;
+        transition: background 0.25s var(--ease);
       }
-      .edu-item:last-child { border-bottom: none; }
-      .edu-period { font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-dim); padding-top: 5px; white-space: nowrap; }
+      .edu-item.is-past { box-shadow: inset 3px 0 0 var(--accent-2); }
+      .edu-item:hover { background: var(--surface-strong); }
+      .edu-period { font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-dim); white-space: nowrap; }
       .edu-now { color: var(--accent); }
-      .edu-main { position: relative; padding-left: 20px; }
-      .edu-main::before {
-        content: ""; position: absolute; left: 0; top: 0.5em;
-        width: 7px; height: 7px; border-radius: 50%;
-        border: 2px solid var(--accent); background: var(--bg);
-      }
-      .edu-main::after {
-        content: ""; position: absolute; left: 4.5px; top: calc(0.5em + 13px); bottom: -21px;
-        width: 1px; background: var(--border);
-      }
-      .edu-item:last-child .edu-main::after { display: none; }
-      .edu-school { font-size: 1.05rem; font-weight: 700; }
-      .edu-degree { margin-top: 6px; font-size: 0.9rem; color: var(--text-dim); }
-      .edu-major { margin-top: 5px; font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-faint); }
+      .edu-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; min-width: 0; }
+      .edu-school { font-size: 1.02rem; font-weight: 700; }
+      .edu-degree { font-size: 0.86rem; color: var(--text-dim); }
+      .edu-major { margin-left: auto; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-faint); white-space: nowrap; }
       .edu-major b { color: var(--text); font-weight: 500; }
 
       /* toolbar: underline tabs */
@@ -535,18 +530,53 @@
       .search-box:focus-within { box-shadow: none; border-color: var(--accent); }
       select.chip { border-radius: 6px; padding: 8px 32px 8px 14px; }
 
-      /* cards */
-      .grid { gap: 14px; }
-      .card { backdrop-filter: none; padding: 18px; }
-      .card:hover { transform: translateY(-2px); }
-      .card-topline { height: 2px; opacity: 0.55; }
-      .repo-link { font-size: 1rem; }
-      .fork-badge { border-radius: 4px; font-family: var(--font-mono); letter-spacing: 0.04em; }
-      .repo-foot, .post-meta { font-size: 0.74rem; }
-      .post-thumb { height: 92px; font-size: 1.9rem; border: 1px solid var(--border); }
+      /* cards → horizontal bars */
+      .grid { gap: 10px; }
+      .grid.repos, .grid.posts { grid-template-columns: 1fr; }
+      .card {
+        border: none; border-radius: 3px;
+        background: var(--surface);
+        backdrop-filter: none;
+        padding: 14px 18px 14px 20px;
+        gap: 4px;
+        overflow: hidden;
+      }
+      .card:hover {
+        transform: none; box-shadow: none;
+        background: var(--surface-strong);
+      }
+      .card-topline {
+        inset: 0 auto 0 0; width: 3px; height: auto;
+        border-radius: 0; opacity: 1;
+      }
+      #panel-repos .card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "title foot" "desc foot";
+        align-items: center;
+        column-gap: 22px;
+      }
+      .repo-title-row { grid-area: title; align-items: center; }
+      .repo-desc { grid-area: desc; min-height: 0; }
+      .repo-link { font-size: 0.99rem; }
+      .repo-foot { grid-area: foot; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 0.73rem; }
+      .fork-badge { border-radius: 3px; font-family: var(--font-mono); letter-spacing: 0.04em; }
+
+      #panel-posts .card {
+        display: flex; flex-direction: row; align-items: center; gap: 14px;
+        padding: 11px 18px 11px 20px;
+      }
+      .post-thumb {
+        width: 40px; height: 40px; flex: 0 0 40px; margin: 0;
+        font-size: 1.25rem; border: 1px solid var(--border); border-radius: 5px;
+      }
       .post-thumb::after { display: none; }
       .thumb-pdf, .thumb-doc, .thumb-md, .thumb-img, .thumb-other { background: var(--surface-strong); }
-      .ext-tag { border-radius: 4px; font-family: var(--font-mono); font-size: 0.64rem; }
+      .ext-tag { border-radius: 3px; font-family: var(--font-mono); font-size: 0.63rem; flex: 0 0 auto; }
+      .post-name { flex: 1; min-width: 0; font-size: 0.92rem; }
+      .post-meta { flex: 0 0 auto; font-size: 0.73rem; }
+      .post-open-hint { margin: 0; padding: 0; flex: 0 0 auto; white-space: nowrap; }
+      .skel { height: 62px; border-radius: 3px; }
 
       /* drawer & misc */
       .drawer { box-shadow: -20px 0 50px rgba(0, 0, 0, 0.35); }
@@ -558,10 +588,15 @@
 
       @media (max-width: 620px) {
         .tabs { justify-content: flex-start; }
-        .edu-item { grid-template-columns: 1fr; gap: 10px; }
-        .edu-period { padding-top: 0; }
-        .edu-main::after { display: none; }
+        .edu-item { grid-template-columns: 1fr; gap: 6px; padding: 13px 16px; }
+        .edu-major { margin-left: 0; }
         .section-title .en { display: none; }
+        #panel-repos .card {
+          grid-template-columns: 1fr;
+          grid-template-areas: "title" "desc" "foot";
+        }
+        .repo-foot { flex-direction: row; align-items: center; flex-wrap: wrap; }
+        .post-open-hint { display: none; }
       }
     </style>
   </head>
@@ -618,20 +653,20 @@
         <h2 class="section-title">教育经历<span class="en">Education</span></h2>
         <ol class="edu-list">
           <li class="edu-item">
-            <div class="edu-period">2026.09 — <span class="edu-now">Present</span></div>
-            <div class="edu-main">
-              <h3 class="edu-school">Xi'an Jiaotong University (XJTU)</h3>
-              <p class="edu-degree">Undergraduate Study · Bachelor's Degree</p>
-              <p class="edu-major">Major: <b>Embodied Artificial Intelligence</b></p>
-            </div>
+            <span class="edu-period">2026.09 — <span class="edu-now">Present</span></span>
+            <span class="edu-body">
+              <span class="edu-school">Xi'an Jiaotong University (XJTU)</span>
+              <span class="edu-degree">Undergraduate Study · Bachelor's Degree</span>
+              <span class="edu-major">Major: <b>Embodied Artificial Intelligence</b></span>
+            </span>
           </li>
-          <li class="edu-item">
-            <div class="edu-period">2024.09 — 2026.06</div>
-            <div class="edu-main">
-              <h3 class="edu-school">Xi'an Jiaotong University (XJTU)</h3>
-              <p class="edu-degree">Preparatory Program</p>
-              <p class="edu-major">Major: <b>Gifted Young Program</b></p>
-            </div>
+          <li class="edu-item is-past">
+            <span class="edu-period">2024.09 — 2026.06</span>
+            <span class="edu-body">
+              <span class="edu-school">Xi'an Jiaotong University (XJTU)</span>
+              <span class="edu-degree">Preparatory Program</span>
+              <span class="edu-major">Major: <b>Gifted Young Program</b></span>
+            </span>
           </li>
         </ol>
       </section>
