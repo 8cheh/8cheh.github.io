@@ -1,0 +1,2997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NL2TM 网页版 · 自然语言 → 图灵机（纯前端）</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1422'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='16' fill='%234da3ff' text-anchor='middle'%3ETM%3C/text%3E%3C/svg%3E" />
+<style>
+:root {
+  --bg: #0b0f16;
+  --bg-2: #111725;
+  --bg-3: #161d2e;
+  --line: #23304a;
+  --line-soft: #1b2438;
+  --fg: #e6ecf7;
+  --fg-dim: #93a2bd;
+  --fg-faint: #5f6f8c;
+  --accent: #4da3ff;
+  --accent-2: #22d3a6;
+  --warn: #f5b642;
+  --err: #ff6b6b;
+  --ok: #37d399;
+  --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 15% -10%, #16233a 0%, var(--bg) 55%) fixed;
+  color: var(--fg);
+  font: 14px/1.55 "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+}
+.mono { font-family: var(--mono); }
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(11, 15, 22, .72);
+  backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 42px; height: 42px; border-radius: 11px; flex: none;
+  display: grid; place-items: center;
+  font: 700 15px var(--mono); letter-spacing: -.5px;
+  color: #06101f;
+  background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  box-shadow: 0 6px 18px rgba(77, 163, 255, .28);
+}
+.topbar h1 { margin: 0; font-size: 17px; letter-spacing: .2px; }
+.topbar h1 .sub { font-size: 12px; font-weight: 500; color: var(--fg-dim); margin-left: 6px; }
+.tagline { margin: 2px 0 0; font-size: 12px; color: var(--fg-faint); }
+.topbar-right { display: flex; gap: 8px; align-items: center; flex: none; }
+.badge {
+  font: 500 11.5px var(--mono);
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--fg-dim); background: var(--bg-2);
+  white-space: nowrap;
+}
+.badge.ok { color: var(--ok); border-color: rgba(55, 211, 153, .35); }
+.badge.err { color: var(--err); border-color: rgba(255, 107, 107, .35); }
+.badge-dim { color: var(--fg-faint); }
+
+/* ---------- 布局 ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 370px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px 22px 40px;
+  align-items: start;
+}
+.right-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } }
+
+.panel {
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.panel-input { position: sticky; top: 86px; }
+@media (max-width: 1080px) { .panel-input { position: static; } }
+.panel-title { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--fg-dim); letter-spacing: .6px; }
+.mini-title { margin: 18px 0 8px; font-size: 12px; font-weight: 600; color: var(--fg-dim); letter-spacing: .5px; }
+.mini-title .hint, .hint { font-weight: 400; color: var(--fg-faint); font-size: 11px; letter-spacing: 0; }
+
+.check-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 10px; font-size: 12px; color: var(--fg-dim); cursor: pointer;
+  user-select: none;
+}
+.check-row input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+/* ---------- 输入 ---------- */
+#nl-input {
+  width: 100%; min-height: 132px; resize: vertical;
+  background: #0a0f19; color: var(--fg);
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 11px 12px; font: 13px/1.6 inherit;
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+#nl-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(77, 163, 255, .14); }
+.row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+.row-between { justify-content: space-between; }
+.field-label { font-size: 12px; color: var(--fg-dim); }
+select {
+  background: #0a0f19; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 8px; font: 12px var(--mono); outline: none; max-width: 62%;
+}
+
+.btn {
+  border: 1px solid var(--line); background: #182136; color: var(--fg);
+  border-radius: 9px; padding: 8px 13px; font-size: 13px; cursor: pointer;
+  transition: background .14s, border-color .14s, transform .06s, opacity .14s;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn:hover:not(:disabled) { background: #1e2a44; border-color: #33456b; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary {
+  background: linear-gradient(135deg, #2b7fe0, #1fa6b8);
+  border-color: transparent; color: #04121f; font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #3a8ff0, #24b9cc); }
+.btn-block { width: 100%; margin-top: 4px; }
+.btn-sm { padding: 6px 10px; font-size: 12.5px; }
+.btn-ghost { background: transparent; }
+.btn-label { pointer-events: none; }
+
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(4, 18, 31, .35); border-top-color: #04121f;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-line { min-height: 18px; margin-top: 8px; font-size: 12px; color: var(--fg-dim); }
+.status-line.err { color: var(--err); }
+.status-line.ok { color: var(--ok); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  border: 1px solid var(--line); background: #131b2b; color: var(--fg-dim);
+  border-radius: 999px; padding: 5px 11px; font-size: 12px; cursor: pointer;
+  transition: all .14s; text-align: left;
+}
+.chip:hover { color: var(--fg); border-color: var(--accent); background: #182741; }
+.chip .chip-sub { display: block; font: 10.5px var(--mono); color: var(--fg-faint); margin-top: 1px; }
+
+.trace { font: 11.5px/1.6 var(--mono); color: var(--fg-faint); max-height: 190px; overflow: auto; white-space: pre-wrap; }
+.trace .t-ok { color: var(--ok); }
+.trace .t-err { color: var(--err); }
+.trace .t-warn { color: var(--warn); }
+
+/* ---------- Tab ---------- */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-soft); margin: -4px 0 14px; }
+.tab {
+  background: none; border: none; color: var(--fg-faint); font-size: 13px;
+  padding: 8px 13px; cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: color .14s, border-color .14s;
+}
+.tab:hover { color: var(--fg-dim); }
+.tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+.empty { color: var(--fg-faint); font-size: 13px; padding: 26px 8px; text-align: center; }
+
+.tm-name { margin: 0 0 4px; font: 600 16px var(--mono); color: var(--accent); }
+.tm-summary { margin: 0 0 14px; color: var(--fg-dim); font-size: 13.5px; }
+.kv { display: grid; gap: 7px; }
+.kv-row { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 12.5px; }
+.kv-key { color: var(--fg-faint); }
+.kv-val { color: var(--fg); word-break: break-word; }
+.kv-val .sym {
+  display: inline-block; padding: 1px 7px; margin: 0 3px 3px 0;
+  background: #0d1524; border: 1px solid var(--line); border-radius: 6px; font-family: var(--mono);
+}
+.kv-val .sym.accept { color: var(--ok); border-color: rgba(55, 211, 153, .4); }
+.kv-val .sym.reject { color: var(--err); border-color: rgba(255, 107, 107, .4); }
+.kv-val .sym.start { color: var(--accent); border-color: rgba(77, 163, 255, .4); }
+
+.assumptions { margin: 0; padding-left: 20px; color: var(--fg-dim); font-size: 12.5px; }
+.assumptions li { margin-bottom: 3px; }
+
+.alerts { margin-top: 14px; display: grid; gap: 6px; }
+.alert { border-radius: 8px; padding: 8px 11px; font-size: 12.5px; border: 1px solid; }
+.alert.err { color: #ffc9c9; background: rgba(255, 107, 107, .09); border-color: rgba(255, 107, 107, .35); }
+.alert.warn { color: #ffe0a8; background: rgba(245, 182, 66, .09); border-color: rgba(245, 182, 66, .32); }
+.alert.ok { color: #b8f2dd; background: rgba(55, 211, 153, .08); border-color: rgba(55, 211, 153, .3); }
+
+/* ---------- 转移表 ---------- */
+.table-wrap { max-height: 460px; overflow: auto; border: 1px solid var(--line-soft); border-radius: 9px; }
+.ttable { width: 100%; border-collapse: collapse; font: 12.5px var(--mono); }
+.ttable th {
+  position: sticky; top: 0; z-index: 1;
+  background: #121a29; color: var(--fg-faint); font-weight: 600;
+  text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.ttable td { padding: 6px 11px; border-bottom: 1px solid var(--line-soft); color: var(--fg-dim); white-space: nowrap; }
+.ttable tbody tr:hover td { background: #131c2d; color: var(--fg); }
+.ttable tr.active td { background: rgba(77, 163, 255, .16); color: #dceaff; }
+.ttable tr.active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.ttable .mv { display: inline-block; min-width: 18px; text-align: center; border-radius: 4px; padding: 0 4px; }
+.ttable .mv-L { color: #ffb86b; } .ttable .mv-R { color: #6bd3ff; } .ttable .mv-N { color: var(--fg-faint); }
+
+/* ---------- 状态图 ---------- */
+.diagram-wrap { overflow: auto; border: 1px solid var(--line-soft); border-radius: 9px; background: #0a0f19; }
+#diagram { display: block; }
+.dg-state circle { fill: #131c2d; stroke: #3a4d75; stroke-width: 1.6; transition: all .12s; }
+.dg-state.accept circle { stroke: var(--ok); }
+.dg-state.reject circle { stroke: var(--err); }
+.dg-state.start circle { stroke: var(--accent); }
+.dg-state.active circle { fill: rgba(77, 163, 255, .22); stroke: var(--accent); stroke-width: 2.6; }
+.dg-state text { fill: var(--fg); font: 12px var(--mono); text-anchor: middle; dominant-baseline: middle; }
+.dg-edge { fill: none; stroke: #43557d; stroke-width: 1.4; marker-end: url(#arrow); }
+.dg-edge.active { stroke: var(--accent); stroke-width: 2.2; marker-end: url(#arrow-active); }
+.dg-label { fill: var(--fg-faint); font: 10.5px var(--mono); text-anchor: middle; }
+.dg-label.active { fill: var(--accent); }
+.dg-start-arrow { stroke: var(--accent); stroke-width: 1.6; fill: none; marker-end: url(#arrow-active); }
+
+/* ---------- JSON ---------- */
+.json-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+#json-view {
+  width: 100%; height: 460px; resize: vertical;
+  background: #0a0f19; color: #cfe3ff; border: 1px solid var(--line);
+  border-radius: 9px; padding: 11px; font: 12px/1.55 var(--mono); outline: none;
+}
+#json-view:focus { border-color: var(--accent); }
+
+/* ---------- 模拟器 ---------- */
+.sim-toolbar { display: flex; gap: 8px; }
+#tape-input {
+  flex: 1; min-width: 0;
+  background: #0a0f19; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 9px; padding: 8px 11px; font-size: 14px; letter-spacing: 2px; outline: none;
+}
+#tape-input:focus { border-color: var(--accent); }
+.sim-controls { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 11px 0; }
+.speed { margin-left: auto; font-size: 12px; color: var(--fg-faint); display: flex; align-items: center; gap: 7px; }
+.speed input { width: 96px; accent-color: var(--accent); }
+
+.sim-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat { background: #0d1422; border: 1px solid var(--line-soft); border-radius: 9px; padding: 7px 10px; min-width: 0; }
+.stat-k { display: block; font-size: 11px; color: var(--fg-faint); }
+.stat-v { display: block; font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-v.accepted { color: var(--ok); }
+.stat-v.rejected, .stat-v.halted { color: var(--err); }
+.stat-v.running { color: var(--accent); }
+
+.tape-wrap { position: relative; margin: 16px 0 6px; padding-top: 20px; overflow-x: auto; }
+.tape-head-marker {
+  position: absolute; top: 0; color: var(--accent); font-size: 13px;
+  transform: translateX(-50%); transition: left .12s ease-out; line-height: 1;
+}
+.tape { display: flex; gap: 3px; width: max-content; }
+.cell {
+  width: 36px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  font: 15px var(--mono);
+  background: #0d1422; border: 1px solid var(--line); border-radius: 7px;
+  color: var(--fg); transition: all .12s;
+}
+.cell.blank { color: #33415c; }
+.cell.head { border-color: var(--accent); background: rgba(77, 163, 255, .14); box-shadow: 0 0 0 3px rgba(77, 163, 255, .12); }
+.cell.written { animation: pop .25s ease-out; }
+@keyframes pop { from { transform: translateY(-5px) scale(.9); background: rgba(34, 211, 166, .3); } }
+.output-line { font-size: 12.5px; color: var(--fg-dim); margin-top: 6px; }
+.output-line .mono { color: var(--accent-2); letter-spacing: 1px; }
+
+.log {
+  height: 170px; overflow: auto; background: #080d16; border: 1px solid var(--line-soft);
+  border-radius: 9px; padding: 9px 11px; font: 11.5px/1.7 var(--mono); color: var(--fg-dim);
+  white-space: pre-wrap;
+}
+.log .l-step { color: var(--fg-faint); }
+.log .l-state { color: var(--accent); }
+.log .l-ok { color: var(--ok); }
+.log .l-err { color: var(--err); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #26344f; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #33456b; }
+
+/* ---- �������֤ ---- */
+.chip-ref { color: var(--accent-2); border-color: rgba(77, 163, 255, .3); cursor: default; }
+.scan-summary .alert { margin-top: 2px; }
+.v-ok { color: var(--ok); text-align: center; }
+.v-bad { color: var(--err); text-align: center; }
+.ttable td.ok { color: var(--ok); }
+.ttable td.bad { color: var(--err); }
+.ttable td.wrap-out { white-space: normal; word-break: break-all; max-width: 220px; }
+#spec-kv { margin-bottom: 4px; }
+
+
+/* 网页版补充样式（叠加在 public/style.css 之上） */
+
+.key-box {
+  margin: 12px 0 4px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #0d1422;
+}
+.key-box .field-label { display: block; margin-bottom: 6px; }
+.key-row { display: flex; gap: 7px; align-items: center; }
+.key-row input { flex: 1; min-width: 0; }
+#api-key, #api-base {
+  background: #0a0f19;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  color: var(--fg);
+  padding: 7px 10px;
+  font-size: 12.5px;
+  outline: none;
+}
+#api-key:focus, #api-base:focus { border-color: var(--accent); }
+#api-base { width: 100%; margin-top: 7px; }
+.key-box .hint { display: block; margin-top: 7px; line-height: 1.5; }
+.key-box .hint.ok { color: var(--ok); }
+.adv { margin-top: 8px; }
+.adv summary { cursor: pointer; font-size: 12px; color: var(--fg-dim); }
+.adv summary:hover { color: var(--fg); }
+.web-footer {
+  max-width: 1280px;
+  margin: 8px auto 40px;
+  padding: 0 20px;
+  color: var(--fg-faint);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+.web-footer a { color: var(--accent); text-decoration: none; }
+.web-footer a:hover { text-decoration: underline; }
+.web-badge {
+  background: rgba(77, 163, 255, .12);
+  border: 1px solid rgba(77, 163, 255, .35);
+  color: var(--accent);
+}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">TM</span>
+    <div>
+      <h1>NL2TM <span class="sub">自然语言 → 图灵机 · 网页版</span></h1>
+      <p class="tagline">用一句话描述计算任务，编译成确定型单带图灵机并直接模拟运行</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge" id="health-badge">检测中…</span>
+    <span class="badge badge-dim" id="model-badge">-</span>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ============ 左：自然语言输入 ============ -->
+  <section class="panel panel-input">
+    <h2 class="panel-title">① 描述你要的计算</h2>
+    <textarea id="nl-input" spellcheck="false"
+      placeholder="例如：读入一串 0 和 1，如果 1 的个数是偶数就接受，否则拒绝。"></textarea>
+
+
+    <div class="key-box">
+      <label class="field-label" for="api-key">DeepSeek API Key</label>
+      <div class="key-row">
+        <input id="api-key" class="mono" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+        <button class="btn btn-sm" id="key-save" type="button">保存</button>
+        <button class="btn btn-sm btn-ghost" id="key-eye" type="button">显示</button>
+      </div>
+      <div id="key-status" class="hint">Key 只保存在本机浏览器 localStorage，直接发往 DeepSeek，不经过第三方服务器。</div>
+      <details class="adv">
+        <summary>高级：接口地址</summary>
+        <input id="api-base" class="mono" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" spellcheck="false" />
+        <div class="hint">若 DeepSeek 不可直连，可填你自己的 OpenAI 兼容代理地址（需支持 CORS）。</div>
+      </details>
+    </div>
+
+    <div class="row row-between">
+      <label class="field-label" for="model-select">模型</label>
+      <select id="model-select">
+        <option value="">默认（deepseek-flash）</option>
+        <option value="deepseek-flash">deepseek-flash（快）</option>
+        <option value="deepseek-v4-pro">deepseek-v4-pro（强）</option>
+      </select>
+    </div>
+    <label class="check-row" title="关闭时模型直接输出 JSON（推荐，2-6 秒）；开启后先进行长思考，适合复杂任务，但可能要几十秒到数分钟">
+      <input type="checkbox" id="deep-toggle" />
+      <span>深度思考（thinking，更慢更贵）</span>
+    </label>
+    <label class="check-row" title="先用快速模型把需求形式化成规格（编码、接受条件、独立测试集），再据此生成并用模拟器逐条验证。更准，代价是多一次快调用">
+      <input type="checkbox" id="spec-toggle" checked />
+      <span>先抽取规格 + 独立验证（更准）</span>
+    </label>
+    <label class="check-row" title="在长度 ≤ N 的全部输入上穷举运行，并把结果交给模型复核，找出小输入就死循环或判定错误的情形。更慢">
+      <input type="checkbox" id="audit-toggle" />
+      <span>深度审计（穷举 + 模型复核，更慢）</span>
+    </label>
+
+    <button id="convert-btn" class="btn btn-primary btn-block">
+      <span class="btn-label">编译为图灵机</span>
+      <span class="spinner" hidden></span>
+    </button>
+    <button id="cancel-btn" class="btn btn-ghost btn-block" hidden>取消编译</button>
+    <div id="convert-status" class="status-line"></div>
+
+    <h3 class="mini-title">快速示例</h3>
+    <div class="chips" id="preset-chips"></div>
+
+    <h3 class="mini-title">编译日志</h3>
+    <div class="trace" id="trace"></div>
+  </section>
+
+  <!-- ============ 右：结果 + 模拟器 ============ -->
+  <section class="right-col">
+    <div class="panel panel-result">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">概览</button>
+        <button class="tab" data-tab="spec">规格与验证</button>
+        <button class="tab" data-tab="table">转移表</button>
+        <button class="tab" data-tab="diagram">状态图</button>
+        <button class="tab" data-tab="json">原始 JSON</button>
+      </div>
+
+      <div class="tab-body">
+        <div class="tab-pane active" id="pane-overview">
+          <div class="empty" id="overview-empty">还没有图灵机。在左侧输入描述并点击「编译为图灵机」。</div>
+          <div id="overview-content" hidden>
+            <h3 class="tm-name" id="tm-name"></h3>
+            <p class="tm-summary" id="tm-summary"></p>
+            <div class="kv">
+              <div class="kv-row"><span class="kv-key">编码方式</span><span class="kv-val" id="tm-encoding"></span></div>
+              <div class="kv-row"><span class="kv-key">输入字母表 Σ</span><span class="kv-val mono" id="tm-input-alpha"></span></div>
+              <div class="kv-row"><span class="kv-key">带字母表 Γ</span><span class="kv-val mono" id="tm-tape-alpha"></span></div>
+              <div class="kv-row"><span class="kv-key">空白符</span><span class="kv-val mono" id="tm-blank"></span></div>
+              <div class="kv-row"><span class="kv-key">状态</span><span class="kv-val mono" id="tm-states"></span></div>
+              <div class="kv-row"><span class="kv-key">初始 / 接受 / 拒绝</span><span class="kv-val mono" id="tm-roles"></span></div>
+            </div>
+            <div id="tm-assumptions-wrap">
+              <h4 class="mini-title">假设</h4>
+              <ul class="assumptions" id="tm-assumptions"></ul>
+            </div>
+            <div id="tm-examples-wrap">
+              <h4 class="mini-title">示例 <span class="hint">（点击可在模拟器中载入）</span></h4>
+              <div class="chips" id="tm-examples"></div>
+            </div>
+            <div id="tm-alerts"></div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="pane-spec">
+          <div class="empty" id="spec-empty">还没有规格。编译后这里会显示「需求形式化 + 独立测试结果」。</div>
+          <div id="spec-content" hidden>
+            <h4 class="mini-title">命中的设计技能 <span class="hint">（从 skills/ 检索注入提示词）</span></h4>
+            <div class="chips" id="spec-skills"></div>
+
+            <h4 class="mini-title">规格</h4>
+            <div class="kv" id="spec-kv"></div>
+            <div id="spec-assumptions-wrap">
+              <h4 class="mini-title">规格假设</h4>
+              <ul class="assumptions" id="spec-assumptions"></ul>
+            </div>
+
+            <div id="spec-corrections-wrap" hidden>
+              <h4 class="mini-title">规格仲裁 <span class="hint">（这些用例的期望被判定为错误，以模拟器实际行为为准）</span></h4>
+              <div id="spec-corrections"></div>
+            </div>
+
+            <h4 class="mini-title">独立验证 <span class="hint">（模拟器实际运行，非模型自述）</span></h4>
+            <div class="table-wrap" id="verify-wrap" hidden>
+              <table class="ttable">
+                <thead><tr><th>来源</th><th>输入</th><th>期望</th><th>实际</th><th>期望输出带</th><th>实际输出带</th><th>步数</th><th>结果</th></tr></thead>
+                <tbody id="verify-body"></tbody>
+              </table>
+            </div>
+            <div id="verify-empty" class="hint"></div>
+
+            <h4 class="mini-title">有界穷举 <span class="hint">（Σ 上长度 ≤ N 的全部输入）</span></h4>
+            <div id="scan-summary" class="scan-summary"></div>
+
+            <div id="audit-wrap" hidden>
+              <h4 class="mini-title">深度审计</h4>
+              <div id="audit-summary"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="pane-table">
+          <div class="empty" id="table-empty">暂无转移表</div>
+          <div class="table-wrap" id="table-wrap" hidden>
+            <table class="ttable">
+              <thead>
+                <tr><th>#</th><th>当前状态</th><th>读</th><th>写</th><th>移动</th><th>下一状态</th></tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="pane-diagram">
+          <div class="empty" id="diagram-empty">暂无状态图</div>
+          <div class="diagram-wrap" id="diagram-wrap" hidden><svg id="diagram" xmlns="http://www.w3.org/2000/svg"></svg></div>
+        </div>
+
+        <div class="tab-pane" id="pane-json">
+          <div class="json-bar">
+            <span class="hint">可直接编辑后点「应用」重载到模拟器</span>
+            <span>
+              <button class="btn btn-ghost btn-sm" id="copy-json">复制</button>
+              <button class="btn btn-ghost btn-sm" id="apply-json">应用</button>
+            </span>
+          </div>
+          <textarea id="json-view" spellcheck="false" placeholder="{}"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel panel-sim" id="panel-sim">
+      <h2 class="panel-title">② 模拟运行</h2>
+
+      <div class="sim-toolbar">
+        <input id="tape-input" class="mono" spellcheck="false" placeholder="输入带内容，例如 1011" />
+        <button class="btn btn-primary btn-sm" id="load-btn">载入</button>
+      </div>
+
+      <div class="sim-controls">
+        <button class="btn btn-sm" id="btn-run" title="运行">▶ 运行</button>
+        <button class="btn btn-sm" id="btn-pause" title="暂停">⏸ 暂停</button>
+        <button class="btn btn-sm" id="btn-step" title="单步">⏭ 单步</button>
+        <button class="btn btn-sm" id="btn-undo" title="回退一步">⏮ 回退</button>
+        <button class="btn btn-sm" id="btn-fast" title="直接跑到停机">⏩ 跑到停机</button>
+        <button class="btn btn-sm" id="btn-reset" title="重置">↺ 重置</button>
+        <label class="speed">速度
+          <input type="range" id="speed" min="1" max="10" value="6" />
+        </label>
+      </div>
+
+      <div class="sim-stats">
+        <div class="stat"><span class="stat-k">状态</span><span class="stat-v mono" id="st-state">-</span></div>
+        <div class="stat"><span class="stat-k">读写头</span><span class="stat-v mono" id="st-head">-</span></div>
+        <div class="stat"><span class="stat-k">步数</span><span class="stat-v mono" id="st-steps">0</span></div>
+        <div class="stat"><span class="stat-k">结果</span><span class="stat-v mono" id="st-result">-</span></div>
+      </div>
+
+      <div class="tape-wrap">
+        <div class="tape-head-marker" id="tape-marker">▼</div>
+        <div class="tape" id="tape"></div>
+      </div>
+      <div class="output-line">输出带：<span class="mono" id="st-output">-</span></div>
+
+      <h3 class="mini-title">运行日志</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===== 图灵机内核（校验 + 模拟器） ===== */
+/*
+ * tm.js — 图灵机内核：JSON 校验 + 确定型单带图灵机模拟器
+ * 同时被浏览器 (window.TM) 和 Node (module.exports) 使用。
+ *
+ * TM JSON 结构：
+ * {
+ *   name, summary, assumptions[], encoding,
+ *   states[], inputAlphabet[], tapeAlphabet[], blank,
+ *   startState, acceptState, rejectState,
+ *   transitions[{state, read, write, move, next}],
+ *   examples[{input, expected, note}]
+ * }
+ */
+(function (root, factory) {
+  const core = factory();
+  if (typeof module !== 'undefined' && module.exports) module.exports = core;
+  if (typeof window !== 'undefined') window.TM = core;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const VALID_MOVES = ['L', 'R', 'N'];
+
+  /** 从模型回复里抽取 JSON（容忍 ```json 代码块、前后废话） */
+  function extractJson(text) {
+    if (typeof text !== 'string') throw new Error('回复内容为空');
+    let s = text.trim();
+    // 去掉代码块围栏
+    const fence = s.match(/```(?:json|JSON)?\s*([\s\S]*?)```/);
+    if (fence) s = fence[1].trim();
+    try {
+      return JSON.parse(s);
+    } catch (_) { /* 继续尝试 */ }
+    // 找到第一个 { 到最后一个 } 的平衡片段
+    const start = s.indexOf('{');
+    const end = s.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      const candidate = s.slice(start, end + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch (_) { /* 继续尝试 */ }
+      // 尝试修复尾随逗号
+      try {
+        return JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
+      } catch (e) {
+        throw new Error('无法解析模型返回的 JSON：' + e.message);
+      }
+    }
+    throw new Error('模型返回内容中未找到 JSON 对象');
+  }
+
+  const isArr = Array.isArray;
+  const isStr = (x) => typeof x === 'string' && x.length > 0;
+
+  /** 规范化：补默认值、去重、修剪，尽量把模型输出掰正 */
+  function normalize(tm) {
+    const out = Object.assign({}, tm);
+    out.states = (isArr(out.states) ? out.states : []).map((s) => String(s).trim()).filter(Boolean);
+    out.states = Array.from(new Set(out.states));
+    out.inputAlphabet = (isArr(out.inputAlphabet) ? out.inputAlphabet : []).map(String);
+    out.tapeAlphabet = (isArr(out.tapeAlphabet) ? out.tapeAlphabet : []).map(String);
+    out.blank = isStr(out.blank) ? out.blank : '_';
+    if (!out.tapeAlphabet.includes(out.blank)) out.tapeAlphabet.push(out.blank);
+    if (!out.tapeAlphabet.length) out.tapeAlphabet = ['0', '1', out.blank];
+    if (!out.inputAlphabet.length) out.inputAlphabet = out.tapeAlphabet.filter((s) => s !== out.blank);
+    out.transitions = (isArr(out.transitions) ? out.transitions : []).map((t) => ({
+      state: String(t && t.state).trim(),
+      read: String(t && t.read),
+      write: String(t && t.write),
+      move: String(t && t.move).trim().toUpperCase(),
+      next: String(t && t.next).trim(),
+    })).filter((t) => t.state && t.next);
+    out.assumptions = (isArr(out.assumptions) ? out.assumptions : []).map(String);
+    out.examples = (isArr(out.examples) ? out.examples : []).map((e) => {
+      const ex = {
+        input: e && e.input != null ? String(e.input) : '',
+        expected: e && e.expected ? String(e.expected) : '',
+        note: e && e.note ? String(e.note) : '',
+      };
+      if (e && e.output != null) ex.output = String(e.output);
+      return ex;
+    });
+    return out;
+  }
+
+  /** 校验；返回 { ok, errors[], warnings[] } */
+  function validate(tm) {
+    const errors = [];
+    const warnings = [];
+    if (!tm || typeof tm !== 'object') return { ok: false, errors: ['TM 不是一个 JSON 对象'], warnings };
+
+    if (!isArr(tm.states) || tm.states.length === 0) errors.push('states 缺失或为空');
+    if (!isArr(tm.transitions)) errors.push('transitions 缺失或不是数组');
+    if (!isStr(tm.blank)) errors.push('blank 缺失');
+    const states = new Set(isArr(tm.states) ? tm.states : []);
+    const tapeAlpha = new Set(isArr(tm.tapeAlphabet) ? tm.tapeAlphabet : []);
+    const inputAlpha = new Set(isArr(tm.inputAlphabet) ? tm.inputAlphabet : []);
+
+    for (const st of ['startState', 'acceptState', 'rejectState']) {
+      if (!isStr(tm[st])) errors.push(`${st} 缺失`);
+      else if (!states.has(tm[st])) errors.push(`${st}="${tm[st]}" 不在 states 中`);
+    }
+    if (tm.acceptState && tm.acceptState === tm.rejectState) errors.push('acceptState 与 rejectState 不能相同');
+    if (isStr(tm.blank) && !tapeAlpha.has(tm.blank)) errors.push(`blank="${tm.blank}" 不在 tapeAlphabet 中`);
+    if (isArr(tm.inputAlphabet)) {
+      if (inputAlpha.has(tm.blank)) errors.push('inputAlphabet 不能包含 blank 符号');
+      for (const s of inputAlpha) if (!tapeAlpha.has(s)) errors.push(`输入符号 "${s}" 不在 tapeAlphabet 中`);
+    }
+    if (!isArr(tm.inputAlphabet) || tm.inputAlphabet.length === 0) warnings.push('inputAlphabet 为空');
+
+    const seen = new Map();
+    const transitions = isArr(tm.transitions) ? tm.transitions : [];
+    transitions.forEach((t, i) => {
+      const at = `transitions[${i}]`;
+      if (!isStr(t.state) || !states.has(t.state)) errors.push(`${at}.state "${t.state}" 非法`);
+      if (!isStr(t.next) || !states.has(t.next)) errors.push(`${at}.next "${t.next}" 非法`);
+      if (!isStr(t.read) || !tapeAlpha.has(t.read)) errors.push(`${at}.read "${t.read}" 不在 tapeAlphabet 中`);
+      if (!isStr(t.write) || !tapeAlpha.has(t.write)) errors.push(`${at}.write "${t.write}" 不在 tapeAlphabet 中`);
+      if (!VALID_MOVES.includes(String(t.move).toUpperCase())) errors.push(`${at}.move "${t.move}" 必须是 L/R/N`);
+      const key = `${t.state}\u0000${t.read}`;
+      if (seen.has(key)) errors.push(`非确定性：(${t.state}, ${t.read}) 有重复转移 (第 ${seen.get(key) + 1} 条与第 ${i + 1} 条)`);
+      else seen.set(key, i);
+    });
+
+    const reachable = reachableStates(tm);
+    for (const s of states) {
+      if (!reachable.has(s) && s !== tm.startState) warnings.push(`状态 "${s}" 从 startState 不可达`);
+    }
+
+    // 接受/拒绝状态不应有出边（模拟器一进入就停机，出边是死代码）
+    const haltingWithOut = new Set();
+    for (const t of transitions) {
+      if (t.state === tm.acceptState || t.state === tm.rejectState) haltingWithOut.add(t.state);
+    }
+    for (const s of haltingWithOut) warnings.push(`终结状态 "${s}" 仍有出边（会被模拟器忽略），建议删除`);
+
+    // 可能死循环：从 startState 可达、却无法到达 accept/reject 的状态
+    const canHalt = coReachable(tm, [tm.acceptState, tm.rejectState]);
+    const deadEnds = [];
+    for (const s of reachable) {
+      if (s === tm.acceptState || s === tm.rejectState) continue;
+      if (!canHalt.has(s)) deadEnds.push(s);
+    }
+    if (deadEnds.length) warnings.push(`状态 ${deadEnds.join(', ')} 无法到达 accept/reject（可能死循环）`);
+
+    // 未被任何转移使用的带符号
+    const usedSym = new Set();
+    for (const t of transitions) { usedSym.add(t.read); usedSym.add(t.write); }
+    const unused = [];
+    for (const s of tapeAlpha) if (s !== tm.blank && !usedSym.has(s)) unused.push(s);
+    if (unused.length) warnings.push(`带符号 ${unused.map((s) => `"${s}"`).join(', ')} 没有被任何转移读写`);
+
+    if (isArr(tm.examples)) {
+      tm.examples.forEach((e, i) => {
+        for (const ch of String(e.input || '')) {
+          if (inputAlpha.size && !inputAlpha.has(ch)) warnings.push(`examples[${i}] 的输入含非法符号 "${ch}"`);
+        }
+      });
+      if (tm.examples.length === 0) warnings.push('没有提供 examples');
+    }
+    return { ok: errors.length === 0, errors, warnings };
+  }
+
+  function reachableStates(tm) {
+    const reach = new Set();
+    if (!isStr(tm.startState)) return reach;
+    const byState = new Map();
+    for (const t of isArr(tm.transitions) ? tm.transitions : []) {
+      if (!byState.has(t.state)) byState.set(t.state, []);
+      byState.get(t.state).push(t);
+    }
+    const stack = [tm.startState];
+    while (stack.length) {
+      const s = stack.pop();
+      if (reach.has(s)) continue;
+      reach.add(s);
+      for (const t of byState.get(s) || []) if (!reach.has(t.next)) stack.push(t.next);
+    }
+    return reach;
+  }
+
+  /** 反向可达：返回所有能（沿转移）到达 targets 中任一状态的状态集合 */
+  function coReachable(tm, targets) {
+    const rev = new Map();
+    for (const t of isArr(tm.transitions) ? tm.transitions : []) {
+      if (!rev.has(t.next)) rev.set(t.next, []);
+      rev.get(t.next).push(t.state);
+    }
+    const seen = new Set();
+    const stack = (targets || []).filter(Boolean);
+    while (stack.length) {
+      const s = stack.pop();
+      if (seen.has(s)) continue;
+      seen.add(s);
+      for (const p of rev.get(s) || []) if (!seen.has(p)) stack.push(p);
+    }
+    return seen;
+  }
+
+  /** 把各种写法的期望结果归一化成 accept / reject */
+  function normVerdict(x) {
+    if (x == null) return null;
+    const s = String(x).trim().toLowerCase();
+    if (!s) return null;
+    if (s.includes('accept') || s.includes('接受') || s.includes('通过') || s === 'a' || s === 'yes' || s === 'true' || s === '1' || s === '✓') return 'accept';
+    if (s.includes('reject') || s.includes('拒绝') || s.includes('不通过') || s === 'r' || s === 'no' || s === 'false' || s === '0' || s === '✗') return 'reject';
+    return null;
+  }
+
+  /** 去掉字符串两端的 blank 符号 */
+  function trimBlanks(s, blank) {
+    const b = blank == null ? '_' : String(blank);
+    const str = String(s == null ? '' : s);
+    let lo = 0, hi = str.length;
+    while (lo < hi && str[lo] === b) lo++;
+    while (hi > lo && str[hi - 1] === b) hi--;
+    return str.slice(lo, hi);
+  }
+
+  /** 在一台机器上跑单个输入，返回归一化后的判定结果 */
+  function runOne(tm, input, maxSteps = 20000) {
+    const m = new Machine(tm, input);
+    m.run(maxSteps);
+    const status = m.status === 'accepted'
+      ? 'accept'
+      : (m.status === 'rejected' || m.status === 'halted' ? 'reject' : 'timeout');
+    return { status, steps: m.steps, output: m.output(), message: m.message, machine: m };
+  }
+
+  /**
+   * 用一组用例独立验证机器。
+   * tests: [{ input, expected?: 'accept'|'reject', output?: '期望最终带内容', why? }]
+   * 只有提供了 expected 才比对判定，只有提供了 output 才比对输出带。
+   */
+  function verify(tm, tests, maxSteps = 20000) {
+    const results = [];
+    for (const t of isArr(tests) ? tests : []) {
+      const input = t && t.input != null ? String(t.input) : '';
+      const want = normVerdict(t && t.expected);
+      const r = runOne(tm, input, maxSteps);
+      const wantOut = (t && t.output != null) ? trimBlanks(t.output, tm.blank) : null;
+      const gotOut = trimBlanks(r.output, tm.blank);
+      const outOk = wantOut === null ? null : gotOut === wantOut;
+      const verdictOk = want === null ? null : r.status === want;
+      const ok = (verdictOk === null || verdictOk) && (outOk === null || outOk);
+      results.push({
+        input, want: want || '-', got: r.status,
+        wantOutput: wantOut, gotOutput: gotOut,
+        steps: r.steps, timeout: r.status === 'timeout', ok,
+        source: t && t.source ? String(t.source) : undefined,
+        note: (t && (t.why || t.note)) || '',
+      });
+    }
+    const failed = results.filter((r) => !r.ok);
+    return { total: results.length, passed: results.length - failed.length, failed, results };
+  }
+
+  /** 枚举 Σ 上长度 0..maxLen 的全部串（受 maxCases 限制） */
+  function enumerateInputs(alphabet, maxLen, maxCases = 600) {
+    const alpha = isArr(alphabet) ? alphabet.slice() : [];
+    const out = [];
+    if (!alpha.length) return out;
+    let frontier = [''];
+    out.push('');
+    for (let len = 1; len <= maxLen && out.length < maxCases; len++) {
+      const next = [];
+      for (const pre of frontier) {
+        for (const ch of alpha) {
+          const s = pre + ch;
+          out.push(s);
+          next.push(s);
+          if (out.length >= maxCases) return out;
+        }
+      }
+      frontier = next;
+    }
+    return out;
+  }
+
+  /**
+   * 有界穷举：在 Σ 上长度 ≤ maxLen 的全部输入上跑机器。
+   * 用来发现「小输入就死循环」以及语言的基本形状，供审计/回修使用。
+   */
+  function scanBounded(tm, opts = {}) {
+    const alphabet = isArr(opts.alphabet) && opts.alphabet.length ? opts.alphabet : (tm.inputAlphabet || []);
+    const maxLen = opts.maxLen == null ? 4 : opts.maxLen;
+    const maxSteps = opts.maxSteps == null ? 4000 : opts.maxSteps;
+    const inputs = enumerateInputs(alphabet, maxLen, opts.maxCases == null ? 600 : opts.maxCases);
+    const table = [];
+    const counts = { accept: 0, reject: 0, timeout: 0 };
+    const timeouts = [];
+    const maxStepsSeen = { input: null, steps: -1 };
+    for (const input of inputs) {
+      const r = runOne(tm, input, maxSteps);
+      counts[r.status]++;
+      if (r.status === 'timeout') timeouts.push({ input, steps: r.steps, output: r.output });
+      if (r.steps > maxStepsSeen.steps) { maxStepsSeen.steps = r.steps; maxStepsSeen.input = input; }
+      table.push({ input, status: r.status, output: r.output, steps: r.steps });
+    }
+    return { alphabet, maxLen, maxSteps, tested: inputs.length, counts, timeouts, table, maxStepsSeen, halted: timeouts.length === 0 };
+  }
+
+  /** 转移函数查找表 */
+  function buildTable(tm) {
+    const table = new Map();
+    for (const t of tm.transitions || []) table.set(`${t.state}\u0000${t.read}`, t);
+    return table;
+  }
+
+  const MAX_HISTORY = 20000;
+
+  class Machine {
+    constructor(tm, input) {
+      this.tm = tm;
+      this.table = buildTable(tm);
+      this.blank = tm.blank || '_';
+      this.maxHistory = MAX_HISTORY;
+
+      const cells = new Map();
+      const s = String(input == null ? '' : input);
+      for (let i = 0; i < s.length; i++) cells.set(i, s[i]);
+      this.cells = cells;
+      this.minIdx = s.length ? 0 : 0;
+      this.maxIdx = s.length ? s.length - 1 : -1;
+      this.head = 0;
+      this.state = tm.startState;
+      this.steps = 0;
+      this.status = 'ready'; // ready | running | accepted | rejected | halted | error
+      this.message = '';
+      this.lastTransition = null;
+      this.history = [];
+      this.initialInput = s;
+    }
+
+    read() {
+      const v = this.cells.get(this.head);
+      return v === undefined ? this.blank : v;
+    }
+
+    write(sym) {
+      if (sym === this.blank) this.cells.delete(this.head);
+      else this.cells.set(this.head, sym);
+    }
+
+    /** 执行一步，返回 false 表示已停机 */
+    step() {
+      if (this.status !== 'ready' && this.status !== 'running') return false;
+      this.status = 'running';
+      this.lastTransition = null;
+
+      if (this.state === this.tm.acceptState) { this.status = 'accepted'; this.message = '到达接受状态'; return false; }
+      if (this.state === this.tm.rejectState) { this.status = 'rejected'; this.message = '到达拒绝状态'; return false; }
+
+      const readSym = this.read();
+      const t = this.table.get(`${this.state}\u0000${readSym}`);
+      if (!t) {
+        this.status = 'halted';
+        this.message = `无可用转移 (${this.state}, "${readSym}")，机器停机`;
+        return false;
+      }
+
+      // 记录历史以便单步回退
+      this.history.push({ state: this.state, head: this.head, symbol: readSym });
+      if (this.history.length > this.maxHistory) this.history.shift();
+
+      this.write(t.write);
+      this.minIdx = Math.min(this.minIdx, this.head);
+      this.maxIdx = Math.max(this.maxIdx, this.head);
+
+      if (t.move === 'L') this.head -= 1;
+      else if (t.move === 'R') this.head += 1;
+
+      this.minIdx = Math.min(this.minIdx, this.head);
+      this.maxIdx = Math.max(this.maxIdx, this.head);
+
+      this.state = t.next;
+      this.steps += 1;
+      this.lastTransition = t;
+
+      if (this.state === this.tm.acceptState) { this.status = 'accepted'; this.message = '到达接受状态'; return false; }
+      if (this.state === this.tm.rejectState) { this.status = 'rejected'; this.message = '到达拒绝状态'; return false; }
+      return true;
+    }
+
+    /** 回退一步 */
+    undo() {
+      const h = this.history.pop();
+      if (!h) return false;
+      this.state = h.state;
+      this.head = h.head;
+      this.write(h.symbol);
+      this.steps = Math.max(0, this.steps - 1);
+      this.status = this.steps === 0 ? 'ready' : 'running';
+      this.message = '';
+      this.lastTransition = null;
+      return true;
+    }
+
+    /** 一直运行，直到停机或达到步数上限 */
+    run(maxSteps = 10000) {
+      let n = 0;
+      while (n < maxSteps) {
+        if (!this.step()) return this.status;
+        n++;
+      }
+      this.status = 'running';
+      this.message = `已达到步数上限 ${maxSteps}，可能存在死循环`;
+      return this.status;
+    }
+
+    reset(input) {
+      const m = new Machine(this.tm, input === undefined ? this.initialInput : input);
+      this.cells = m.cells;
+      this.minIdx = m.minIdx;
+      this.maxIdx = m.maxIdx;
+      this.head = m.head;
+      this.state = m.state;
+      this.steps = 0;
+      this.status = m.status;
+      this.message = '';
+      this.lastTransition = null;
+      this.history = [];
+      this.initialInput = m.initialInput;
+      this.table = m.table;
+      this.blank = m.blank;
+    }
+
+    /** 当前带内容（已裁剪两端连续 blank），返回 {cells:[{index,symbol}], min, max} */
+    snapshot(pad = 1) {
+      let lo = Math.min(this.minIdx, this.head);
+      let hi = Math.max(this.maxIdx, this.head);
+      // 向两侧多看一点 blank，制造"无限纸带"的观感
+      lo -= pad;
+      hi += pad;
+      const arr = [];
+      for (let i = lo; i <= hi; i++) arr.push({ index: i, symbol: this.cells.get(i) === undefined ? this.blank : this.cells.get(i) });
+      return { cells: arr, min: lo, max: hi, head: this.head };
+    }
+
+    /** 去掉两端 blank 后的输出带内容 */
+    output() {
+      if (this.cells.size === 0) return '';
+      const keys = Array.from(this.cells.keys());
+      const lo = Math.min.apply(null, keys);
+      const hi = Math.max.apply(null, keys);
+      let s = '';
+      for (let i = lo; i <= hi; i++) {
+        const v = this.cells.get(i);
+        s += v === undefined ? this.blank : v;
+      }
+      return s;
+    }
+  }
+
+  return {
+    VALID_MOVES,
+    extractJson,
+    normalize,
+    validate,
+    buildTable,
+    reachableStates,
+    coReachable,
+    normVerdict,
+    trimBlanks,
+    runOne,
+    verify,
+    enumerateInputs,
+    scanBounded,
+    Machine,
+    statusLabel(status) {
+      return {
+        ready: '就绪',
+        running: '运行中',
+        accepted: '接受 ✓',
+        rejected: '拒绝 ✗',
+        halted: '停机（无转移）',
+        error: '错误',
+      }[status] || status;
+    },
+  };
+});
+
+</script>
+<script>
+/* ===== 提示词与验证辅助 ===== */
+/*
+ * prompts.js — 提示词、规格处理、验证辅助（Node 与浏览器共用）
+ *
+ * UMD：Node 里 module.exports；浏览器里 window.TM_PROMPTS
+ * 这样后端 server.js 与静态网页版用的是同一套提示词与验证逻辑，不会走样。
+ */
+(function (root, factory) {
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = factory(require('../public/tm.js'));
+  } else {
+    root.TM_PROMPTS = factory(root.TM);
+  }
+})(typeof self !== 'undefined' ? self : this, function (TM) {
+  'use strict';
+
+  const str = (x) => (x == null ? '' : String(x));
+  const arrStr = (x) => (Array.isArray(x) ? x.map(str) : []);
+
+  /* ---------------------------------------------------------------- */
+  /* 基础提示词                                                        */
+  /* ---------------------------------------------------------------- */
+
+  const BASE_RULES = `你是一个「自然语言 → 图灵机」编译器（NL2TM）。你的唯一输出是一段严格合法的 JSON 对象，描述一台【确定型、单带、双向、可读写】图灵机。禁止输出任何解释文字、Markdown 代码块或注释。
+
+JSON 结构（所有字段都必须出现）：
+{
+  "name": "简短的英文/拼音标识名，如 binary_increment",
+  "summary": "用中文一句话说明这台图灵机做什么",
+  "assumptions": ["中文，对歧义做的假设；没有则给空数组"],
+  "encoding": "中文，说明输入串如何编码（例如：一元编码，n 个 1 表示整数 n；遇到空白符结束）",
+  "states": ["q0", "q1"],
+  "inputAlphabet": ["0", "1"],
+  "tapeAlphabet": ["0", "1", "_"],
+  "blank": "_",
+  "startState": "q0",
+  "acceptState": "q_accept",
+  "rejectState": "q_reject",
+  "transitions": [
+    {"state": "q0", "read": "1", "write": "1", "move": "R", "next": "q0"}
+  ],
+  "examples": [
+    {"input": "111", "expected": "accept", "output": "1111", "note": "中文说明"}
+  ]
+}
+
+硬性规则：
+1. 单带、确定型。每一步 = 读当前格符号 → 写入新符号 → 左移/右移/不动。
+2. move 只能是 "L"、"R"、"N"。
+3. blank 固定用 "_"，且必须包含在 tapeAlphabet 中；inputAlphabet 必须是 tapeAlphabet 的子集，且不能包含 blank。
+4. states 中的名字只含字母、数字、下划线，非空且互不相同；startState / acceptState / rejectState 必须在 states 中，且 acceptState ≠ rejectState。
+5. transitions 中 state 与 next 必须在 states 中；read 与 write 必须在 tapeAlphabet 中；同一个 (state, read) 组合最多出现一次（确定性）。
+6. 磁带无限长：向右无限延伸，读写头向左越界视为 blank。不需要写"边界"处理状态。
+7. 输入串只由 inputAlphabet 的符号组成，放在磁带最左端起，读写头从最左端开始。
+8. 机器必须能停机：对合法输入应到达 acceptState 或 rejectState（不要产生无限循环）。对非法输入可进入 rejectState 或无转移停机。
+9. 用尽量少且可读的状态实现；状态命名为 q0, q1, ... 以及 q_accept / q_reject。
+10. examples 至少给 2 个。**凡是「要在带上留下计算结果」的任务（函数计算类），每个 example 都必须给出 "output" 字段，写明运行结束后整条带的内容**（前后空白忽略，用 "_" 表示空白；不要包含 X/# 之类的临时标记，除非题目要求保留）。语言识别类任务的 output 可省略。
+11. 如果用户的需求本身不可计算或描述不出图灵机，也要输出 JSON：把 summary 写成中文说明为何不可实现，transitions 给空数组，states 至少包含 startState/acceptState/rejectState。
+12. 【复杂度上限】states 不超过 10 个，transitions 不超过 40 条。宁可用巧妙的状态设计，也不要堆状态。输出必须完整（不能写省略号或 "..."）。
+13. 如果给了「规格」和「参考机」，严格按规格的编码与判定条件实现；参考机是已经被模拟器验证过的正确模板，可以整体套用或改写。
+14. 只输出 JSON 本身。`;
+
+  const SPEC_PROMPT = `你是一个「计算任务规格分析器」。请把用户的自然语言需求形式化成一份精确、可用于测试的规格，只输出 JSON，不要解释、不要代码块。
+
+JSON 结构：
+{
+  "task_type": "language",
+  "summary": "一句话说明任务",
+  "encoding": "输入串的编码方式，说明空串与分隔符的含义",
+  "input_alphabet": ["0", "1"],
+  "tape_alphabet": ["0", "1", "_"],
+  "blank": "_",
+  "accept_condition": "中文，什么样的输入应当接受",
+  "reject_condition": "中文，什么样的输入应当拒绝",
+  "output_rule": "运行结束后带上应为什么。语言识别类写「不要求修改输入带」",
+  "assumptions": ["中文，对歧义做的假设"],
+  "tests": [
+    {"input": "11", "expected": "accept", "why": "中文，为什么"}
+  ]
+}
+
+规则：
+1. task_type 只能是 "language"（只判接受/拒绝）或 "transducer"（要在带上留下计算结果）。
+2. tests 至少 6 条，必须同时覆盖 accept 与 reject（除非该任务只有一边）。
+3. tests 必须包含边界：空串、长度 1、以及最容易写错的中间情形。输入只能由 input_alphabet 的符号组成，空串写 ""。
+4. 如果是 transducer，每条 test 必须额外给出 "output" 字段，写明运行结束后整条带的内容（前后空白忽略；用 "_" 表示空白；不要写临时标记 X/# 等，除非题目要求保留）。此时 output_rule 必须写清最终带格式。
+5. expected 只能是 "accept" 或 "reject"。
+6. 只输出 JSON。`;
+
+  /* ---------------------------------------------------------------- */
+  /* 提示词拼装                                                        */
+  /* ---------------------------------------------------------------- */
+
+  function skillBlock(sk, skillsLib) {
+    const parts = [];
+    if (sk.core) parts.push(`\n\n===== 通用设计法则（必须遵守）=====\n${sk.core.trim()}`);
+    if (sk.picked && sk.picked.length) {
+      parts.push(`\n\n===== 本次任务相关的专项套路 =====${skillsLib.renderPatterns(sk.picked)}`);
+    }
+    if (sk.references && sk.references.length) {
+      parts.push(`\n\n===== 已验证的参考图灵机（可直接套用/改写）=====\n`
+        + sk.references.map((r) => skillsLib.renderReference(r)).join('\n\n'));
+    }
+    return parts.join('');
+  }
+
+  function specBlock(spec) {
+    if (!spec) return '';
+    const lines = [];
+    lines.push('\n\n===== 任务规格（权威，必须严格满足）=====');
+    lines.push(`类型：${spec.task_type}`);
+    if (spec.encoding) lines.push(`编码：${spec.encoding}`);
+    if (spec.input_alphabet && spec.input_alphabet.length) lines.push(`输入字母表：${JSON.stringify(spec.input_alphabet)}`);
+    if (spec.accept_condition) lines.push(`接受条件：${spec.accept_condition}`);
+    if (spec.reject_condition) lines.push(`拒绝条件：${spec.reject_condition}`);
+    if (spec.output_rule) lines.push(`输出要求：${spec.output_rule}`);
+    if (spec.assumptions && spec.assumptions.length) lines.push(`假设：${spec.assumptions.join('；')}`);
+    if (spec.tests && spec.tests.length) {
+      lines.push('必须通过的测试用例（含期望的最终带内容）：');
+      for (const t of spec.tests) {
+        const out = t.output == null ? '' : `，最终带 = "${t.output === '' ? '（空）' : t.output}"`;
+        lines.push(`  - 输入 "${t.input === '' ? '（空串）' : t.input}" → ${t.expected}${out}`);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  function buildSystem(sk, spec, skillsLib, extra) {
+    let s = BASE_RULES + skillBlock(sk, skillsLib) + specBlock(spec);
+    if (extra) s += '\n\n' + extra;
+    return s;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 规格规范化                                                        */
+  /* ---------------------------------------------------------------- */
+
+  function normalizeSpec(raw) {
+    const s = raw && typeof raw === 'object' ? raw : {};
+    const out = {
+      task_type: /trans/i.test(str(s.task_type)) ? 'transducer' : 'language',
+      summary: str(s.summary),
+      encoding: str(s.encoding),
+      input_alphabet: arrStr(s.input_alphabet),
+      tape_alphabet: arrStr(s.tape_alphabet),
+      blank: str(s.blank) || '_',
+      accept_condition: str(s.accept_condition),
+      reject_condition: str(s.reject_condition),
+      output_rule: str(s.output_rule),
+      assumptions: arrStr(s.assumptions),
+      tests: [],
+    };
+    for (const t of Array.isArray(s.tests) ? s.tests : []) {
+      if (!t || t.input == null) continue;
+      const test = { input: str(t.input), expected: str(t.expected), why: str(t.why || t.note) };
+      if (t.output != null) test.output = str(t.output);
+      if (TM.normVerdict(test.expected)) out.tests.push(test);
+    }
+    return out;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 测试集与验证                                                      */
+  /* ---------------------------------------------------------------- */
+
+  /** 合并规格测试与机器自述示例；同一输入以规格为准；ignore 里的输入跳过 */
+  function buildTests(spec, tm, ignore) {
+    const byInput = new Map();
+    const order = [];
+    const add = (t, source) => {
+      const key = str(t.input);
+      if (ignore && ignore.has(key)) return;
+      if (byInput.has(key)) {
+        if (source === 'spec') byInput.set(key, Object.assign({}, t, { source }));
+        return;
+      }
+      byInput.set(key, Object.assign({}, t, { source }));
+      order.push(key);
+    };
+    for (const t of (spec && spec.tests) || []) add(t, 'spec');
+    for (const t of (tm && tm.examples) || []) add(t, 'self');
+    return order.map((k) => byInput.get(k));
+  }
+
+  /** 有界穷举，只把「短输入上的死循环」当硬失败，避免误伤 */
+  function hardTimeouts(scan) {
+    return (scan.timeouts || []).filter((t) => str(t.input).length <= 3);
+  }
+
+  function verifyAll(tm, spec, ignore, cfg) {
+    const c = cfg || {};
+    const tests = buildTests(spec, tm, ignore);
+    const verification = TM.verify(tm, tests, 20000);
+    const scan = TM.scanBounded(tm, {
+      alphabet: tm.inputAlphabet,
+      maxLen: c.scanMaxLen == null ? 4 : c.scanMaxLen,
+      maxSteps: c.scanMaxSteps == null ? 4000 : c.scanMaxSteps,
+      maxCases: 800,
+    });
+    const hard = hardTimeouts(scan);
+    const selfTests = (tm.examples || [])
+      .filter((e) => !(ignore && ignore.has(str(e.input))))
+      .map((e) => Object.assign({ source: 'self' }, e));
+    const selfCheck = TM.verify(tm, selfTests, 20000);
+    const semanticOk = verification.failed.length === 0 && hard.length === 0;
+    return {
+      verification,
+      selfCheck: { checked: selfCheck.total, problems: selfCheck.failed },
+      scan: {
+        tested: scan.tested,
+        counts: scan.counts,
+        timeouts: scan.timeouts.slice(0, 20),
+        hardTimeouts: hard,
+        halted: scan.halted,
+      },
+      scanFull: scan,
+      semanticOk,
+    };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 回修提示词                                                        */
+  /* ---------------------------------------------------------------- */
+
+  function describeFailures(v) {
+    return v.failed.slice(0, 12).map((f, i) => {
+      const parts = [`${i + 1}. [${f.source === 'spec' ? '规格' : '自述'}] 输入 "${f.input === '' ? 'ε' : f.input}"：期望 ${f.want}`];
+      if (f.wantOutput != null) parts.push(`且最终带应为 "${f.wantOutput === '' ? '（空）' : f.wantOutput}"`);
+      parts.push(`实际 ${f.got}`);
+      parts.push(`最终带 "${f.gotOutput === '' ? '（空）' : f.gotOutput}"（${f.steps} 步${f.timeout ? '，疑似死循环' : ''}）`);
+      return parts.join('，');
+    }).join('\n');
+  }
+
+  const REPAIR_PROMPT = (raw, errors) => `你上一次输出的图灵机 JSON 没有通过结构校验，请修正后重新输出完整 JSON。
+
+校验错误：
+${errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+
+你上一次的输出：
+${raw}
+
+要求：
+- 只输出修正后的完整 JSON，不要任何解释，不要 Markdown 代码块。
+- 必须修复上述全部错误，并保持原描述的功能意图。
+- 检查：tapeAlphabet 必须包含 blank 与所有 read/write 用到的符号；所有 state/next 必须是 states 中的成员；同一 (state, read) 不能重复；move 只能是 L/R/N。`;
+
+  const SEMANTIC_REPAIR_PROMPT = (raw, spec, v, extra) => {
+    const specTxt = specBlock(spec).trim();
+    return `你上一次输出的图灵机 JSON 结构合法，但用模拟器实际运行后与期望不符（或在小输入上死循环）。请修正后重新输出完整 JSON。
+
+${specTxt ? specTxt + '\n\n' : ''}实测失败案例：
+${describeFailures(v)}
+${extra ? '\n\n额外的反例：\n' + extra : ''}
+
+你上一次的输出：
+${raw}
+
+要求：
+- 只输出修正后的完整 JSON，不要解释，不要 Markdown 代码块。
+- 逐条在脑中推演上面的失败输入，找出错误的转移并彻底修好。特别检查：
+  接受/拒绝状态是否接反；读写头移动方向是否正确；是否遗漏某个 (状态, 符号) 的转移；
+  标记符号（X/Y/#）有没有被正确跳过；函数计算类的最终带内容是否符合规格。
+- 修正后必须保证上述每一个输入的实际运行结果（判定 + 最终带内容）都符合期望。`;
+  };
+
+  const TRUNCATED_REPAIR_PROMPT = (raw) => `你上一次的输出因为太长被截断了（max_tokens 用尽），JSON 不完整。请重新输出一个【更精简】的完整 JSON。
+
+要求：
+- states 控制在 8 个以内，transitions 控制在 30 条以内。
+- 不要输出多余字段，不要省略号，不要注释，不要 Markdown 代码块。
+- 可以通过更巧妙的编码或状态设计来降低规模（例如用标记符号在带上做记号）。
+- 必须保证 JSON 完整可解析。
+
+你上次输出的开头部分作为参考：
+${String(raw).slice(0, 1500)}`;
+
+  /* ---------------------------------------------------------------- */
+  /* 仲裁 / 审计提示词                                                 */
+  /* ---------------------------------------------------------------- */
+
+  const ARBITRATE_PROMPT = `你是严格的评审员。下面给出一个计算任务的描述、一台图灵机的实际行为，以及若干存在分歧的测试用例。
+请**只根据任务描述**逐条判断：是用例的期望正确，还是图灵机的实际行为正确。
+
+要求：
+- 先逐字符写出该输入，亲自按描述检查一遍（例如判断子串时要看它是否**连续**出现），再下结论。
+- 不要盲信用例给出的期望，也不要默认机器是对的。
+
+只输出 JSON：
+{"judgments":[{"input":"...","side":"machine","why":"中文理由"}]}
+
+side 取值："spec"（用例期望正确，机器错了）、"machine"（机器行为正确，用例期望错了）、"unclear"（描述不清无法判断）。
+只输出 JSON。`;
+
+  const AUDIT_PROMPT = `你是图灵机审计员。用户给了一个计算任务和一台待审的图灵机（含其转移函数），以及这台机器在若干小输入上的实际运行结果。请判断这些实际结果里有没有与任务要求不符的。
+
+只输出 JSON：
+{"mismatches":[{"input":"...","should_be":"accept","why":"中文说明"}]}
+
+规则：
+- 只列出你**确定**错误的输入；全部正确就输出 {"mismatches":[]}。
+- should_be 只能是 "accept" 或 "reject"。
+- 只输出 JSON。`;
+
+  function hardTimeoutText(scan) {
+    if (!scan || !scan.hardTimeouts || !scan.hardTimeouts.length) return '';
+    return scan.hardTimeouts
+      .slice(0, 8)
+      .map((t) => `输入 "${t.input === '' ? 'ε' : t.input}" 跑了 ${t.steps} 步仍未停机，疑似死循环`)
+      .join('\n');
+  }
+
+  return {
+    str, arrStr,
+    BASE_RULES, SPEC_PROMPT,
+    skillBlock, specBlock, buildSystem, normalizeSpec,
+    buildTests, hardTimeouts, verifyAll,
+    describeFailures, REPAIR_PROMPT, SEMANTIC_REPAIR_PROMPT, TRUNCATED_REPAIR_PROMPT,
+    ARBITRATE_PROMPT, AUDIT_PROMPT, hardTimeoutText,
+  };
+});
+
+</script>
+<script>
+/* ===== 网页运行时（直连 DeepSeek） ===== */
+/*
+ * runtime.js — 网页版运行时（浏览器直连 DeepSeek）
+ *
+ * 定义 TM_WEB_CONFIG 与 TM_WEB_CALLCHAT，供 lib/pipeline.js 的 UMD 工厂读取。
+ * 必须在 lib/pipeline.js 之前加载。
+ */
+(function (root) {
+  'use strict';
+
+  root.TM_WEB_CONFIG = {
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: '',
+    model: 'deepseek-flash',
+    specModel: 'deepseek-flash',
+    deep: false,
+    maxTokens: 32000,
+    deepMaxTokens: 64000,
+    specMaxTokens: 8000,
+    timeoutMs: 300000,
+    deepTimeoutMs: 420000,
+    attempts: 4,
+    scanMaxLen: 4,
+    scanMaxSteps: 4000,
+    specFirst: true,
+    audit: false,
+  };
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function callChatOnce(messages, opts = {}) {
+    const C = root.TM_WEB_CONFIG;
+    if (!C.apiKey) {
+      const e = new Error('请先填写 DeepSeek API Key（只保存在本机浏览器）');
+      e.statusCode = 401;
+      e.retriable = false;
+      throw e;
+    }
+    const url = (C.baseUrl || 'https://api.deepseek.com').replace(/\/+$/, '') + '/chat/completions';
+    const deep = opts.deep === undefined ? C.deep : Boolean(opts.deep);
+    const timeout = deep ? C.deepTimeoutMs : C.timeoutMs;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    let cancelled = false;
+    if (opts.signal) {
+      if (opts.signal.aborted) { cancelled = true; controller.abort(); }
+      else opts.signal.addEventListener('abort', () => { cancelled = true; controller.abort(); }, { once: true });
+    }
+    try {
+      const payload = {
+        model: opts.model || C.model,
+        messages,
+        temperature: opts.temperature == null ? 0.2 : opts.temperature,
+        max_tokens: opts.maxTokens || (deep ? C.deepMaxTokens : C.maxTokens),
+        stream: false,
+        // DeepSeek V4 是推理模型：关闭 thinking 才能稳定直接吐 JSON
+        thinking: { type: deep ? 'enabled' : 'disabled' },
+      };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + C.apiKey },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch (_) { /* 非 JSON */ }
+      if (!res.ok) {
+        const detail = data && data.error ? (data.error.message || JSON.stringify(data.error)) : text.slice(0, 400);
+        const e = new Error('接口返回 ' + res.status + '：' + detail);
+        e.statusCode = res.status;
+        e.retriable = res.status === 429 || res.status >= 500;
+        throw e;
+      }
+      const choice = (data && data.choices && data.choices[0]) || {};
+      const msg = choice.message || {};
+      const content = msg.content || '';
+      const reasoning = msg.reasoning_content || msg.reasoning || '';
+      const finish = choice.finish_reason || '';
+      if (!content) {
+        const truncated = finish === 'length';
+        const e = new Error(truncated ? '输出被 max_tokens 截断（思考链占用过多）' : '模型返回了空内容');
+        e.truncated = truncated;
+        e.partial = reasoning;
+        e.retriable = !truncated;
+        throw e;
+      }
+      return { content, reasoning, finish, usage: data.usage || null, model: data.model || payload.model };
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        if (cancelled) {
+          const err = new Error('已取消');
+          err.name = 'AbortError';
+          err.statusCode = 499;
+          throw err;
+        }
+        const err = new Error('请求模型超时（>' + Math.round(timeout / 1000) + 's）');
+        err.statusCode = 504;
+        throw err;
+      }
+      if (!e.statusCode) e.statusCode = 0;
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function callChat(messages, opts = {}) {
+    const retries = opts.retries == null ? 3 : opts.retries;
+    let last;
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await callChatOnce(messages, opts);
+      } catch (e) {
+        last = e;
+        const code = e.statusCode || 0;
+        const retriable = e.retriable === true || (e.retriable !== false && (code === 0 || code === 429 || code >= 500));
+        if (!retriable || i === retries - 1) throw e;
+        await sleep(600 * Math.pow(2, i) + Math.random() * 300);
+      }
+    }
+    throw last;
+  }
+
+  root.TM_WEB_CALLCHAT = callChat;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+/* ===== 图灵机设计技能库数据 ===== */
+window.TM_SKILLS = {"version":1,"core":"# TM 设计核心法则（每次编译都会注入）\n\n这一段是「自然语言 → 图灵机」编译器的**通用内功**。无论用户描述什么任务，先按这里的\n流程把问题想清楚，再写转移表。\n\n## 0. 先形式化，再动手\n\n拿到描述后，先在脑子里（或草稿里）确定四件事，缺一不可：\n\n1. **输入编码**：字符串长什么样？分隔符是什么？空串代表什么？题目要求的编码无法表达时，\n   给出合理假设（写进 `assumptions`）。\n2. **判定/输出目标**：是「语言识别」（只 accept/reject）还是「函数计算」（要在带上留下结果）？\n   - 语言识别：结束时带上内容无所谓，只要判定正确。\n   - 函数计算：必须明确**最终带上应该是什么**（原地修改？追加？是否允许留下标记？）。\n3. **输入字母表 Σ 与带字母表 Γ**：Γ 要包含 Σ、blank、以及所有临时标记。\n4. **边界**：空串、长度 1、全同符号、已有序、已满足条件的情形，各是什么结果？\n\n## 1. 编码选择 > 状态技巧\n\n**同样的任务，换一种编码往往能把状态数砍掉一半。** 优先选：\n\n- 用**成对标记**（X/Y、A/B）在带上记录「已处理 / 未处理」，而不是试图用有限状态记住位置。\n- 需要「记住某个位置的符号」时，把它改成带特有标记（如把 `a` 暂时写成 `A`），处理完再还原。\n- 逻辑上的「栈」用带上不断右移的标记区来模拟（平衡括号、回文都用这个思路）。\n- 能利用 blank 作为天然串尾时，绝不额外写结束符。\n\n## 2. 必备惯用法（idioms）\n\n### 2.1 右扫描到串尾\n```\nq_scan:  ∈Σ ∩ Γ  →  同符号, R, q_scan\nq_scan:  _        →  _, \u003c进入下一阶段>, q_next\n```\n注意：扫到 `_` 时通常要 `L` 回到最后一个有效符号，别停在空白上。\n\n### 2.2 回到最左端\n```\nq_home: 任意非 _  →  同符号, L, q_home\nq_home: _         →  _, R, q_start      // 回到下标 0\n```\n\n### 2.3 划掉 / 打标记（crossing off）\n处理过的符号写成 `X`（或 `Y`），下次直接跳过。**不要直接擦成 blank**，否则会失去\n「这里原来有东西」的信息，也无法区分「串尾」与「处理过的空洞」。\n\n### 2.4 双指针配对\n最左未标记符号与最右未标记符号配成一对：标记左边 → 右扫到最右未标记 → 比较/配对 →\n标记右边 → 回最左端。回文、`a^n b^n`、`1^a 0 1^b` 比较都用它。\n\n### 2.5 奇偶翻转\n「个数是偶数/奇数」不需要计数，只需要两个状态来回切换：每读到一个目标符号就换状态。\n\n### 2.6 进位 / 借位传播\n从最低位向左传播：把尾部的 1 变 0 直到遇到 0 变 1；若一直退到 blank，则写 1（多一位）。\n\n### 2.7 分阶段设计\n把算法拆成几个阶段（扫描、找回、处理、收尾），每阶段一组状态，命名带阶段前缀\n（`scan_*`、`find_*`、`back_*`），这样既好读又不容易漏转移。\n\n### 2.8 收尾还原\n如果题目要求输出原始字符串，处理过程中打的临时标记（`X`、`A`、`#` 等）要在最后还原/删除，\n可以专门用一个「清理阶段」跑一遍把标记写回原符号。\n\n## 3. 常见错误清单（写完逐条自检）\n\n- [ ] **接受/拒绝搞反**：把「偶数接受」写成「奇数接受」。\n- [ ] **漏掉 blank 转移**：右扫描时忘了 `_` 的处理，机器在串尾无转移停机 → 被当成 reject。\n- [ ] **移动方向反了**：`L`/`R` 写反，导致原地打转。\n- [ ] **忘记回到串首**：每轮处理完没有 `q_home`，下一轮从带中间开始。\n- [ ] **标记没跳过**：扫描时读到自己的 `X` 却没有转移。\n- [ ] **输出带没还原**：函数计算题留下了一堆 `X`，与期望输出不符。\n- [ ] **该写 blank 的写了符号**：删除分隔符时写成 `_` 而不是别的符号。\n- [ ] **终结状态还有出边**：`q_accept`/`q_reject` 上挂了转移（模拟器直接停机，属于死代码）。\n- [ ] **确定性重复**：同一个 `(state, read)` 出现两条不同转移。\n\n## 4. 规模控制\n\n`states ≤ 10`、`transitions ≤ 40`。如果设计超了，按下面的顺序简化：\n\n1. 换编码（用标记代替记忆）；\n2. 合并「空转」状态（例如多个阶段都以「跳过 X」开头，可共用一个状态）；\n3. 用 `N`（不移动）省掉「先移动再回来」的成对状态；\n4. 把「删除符号」改成「写 blank」而不是搬运整段串。\n\n## 5. 输出前自查（务必执行）\n\n1. 对每个 example 在纸上/脑中跑一遍，确认 accept/reject 与输出带一致；\n2. 对空串、长度 1、极端输入各想一个例子，确认有定义、能停机；\n3. 检查每个 `read` 都在 Γ 中、每个 `next` 都在 `states` 中、`(state, read)` 不重复。\n","skills":[{"id":"parity-counting","title":"奇偶 / 计数比较","keywords":["偶数","奇数","个数","计数","统计","一样多","个数相等","数量相等","parity","even","odd","count","equal","多数","少数","0的个数","1的个数"],"tags":["counting","language"],"body":"# 模式：奇偶 / 计数比较\n\n## 适用\n「1 的个数是偶数」「0 比 1 多」「两种符号个数是否相等」「至少 k 个」……\n\n## 关键洞察\n- **只要奇偶** → 不需要计数，2 个状态互相翻转即可。这是最快的解法，优先考虑。\n- **要比较两类符号的数量** → 用标记做「配对消去」：每消掉一个 A 配一个 B，最后看谁先耗尽。\n- 有限状态无法真正「记住一个数」，所以任何数量比较都必须落成**带上的标记消去过程**。\n\n## 套路 A：奇偶（even_ones 参考机）\n```\nq_even: 0→0,R,q_even ; 1→1,R,q_odd ; _→_,N,q_accept\nq_odd : 0→0,R,q_odd  ; 1→1,R,q_even; _→_,N,q_reject\n```\n- 从「偶数」状态出发；读一个目标符号就翻到「奇数」。\n- 空串天然落在 q_even → 接受；如果题面要求「至少一个」，就在 `_` 上改成跳到 reject。\n\n## 套路 B：两类符号配对（数量相等）\n参考机 `equal_01_count`（0 的个数 == 1 的个数）：\n1. 从最左端找第一个未标记的 0，写成 X；\n2. **回到最左端**，再找第一个未标记的 1，写成 Y（1 可能在左边，不能只往右找！）；\n3. 回到最左端重复；\n4. 找不到未标记的 0 时：从右往左检查还有没有未标记的 1，有则拒绝，没有则接受。\n\n若要求「A 的数量 ≤ B 的数量」等不等关系，把第 4 步的判断改成对应结论。\n\n## 套路 C：一元数相等（unary_equal 参考机）\n输入 `1^a 0 1^b`，判断 a=b。用 X 划掉左右各一个 1，直到有一边耗尽；\n此时若另一边也没有剩余的 1 则接受，否则拒绝。**符号 0 只作为分隔符，不参与计数。**\n\n## 常见坑\n- 忘记跳过自己的标记 X/Y（扫描时读到 X 无转移）。\n- **配对时只向右找第二个符号**：如果第一个符号出现在第二个符号右边（如 `10`），向右找会漏掉左边的那个。正确做法是每轮都从最左端重新扫描。\n- 左块耗尽后没有单独检查右块，直接把「找不到左 1」当成成功。\n- 「偶数个 1」误写成「偶数个 0」。\n","refs":[{"name":"even_ones","summary":"读入 0/1 串，若 1 的个数为偶数则接受，否则拒绝（不修改输入带）","assumptions":["空串视为 0 个 1，因此接受"],"encoding":"输入为 0/1 串，只读扫描；不修改带内容，靠状态在扫描时记录奇偶性。","states":["q_even","q_odd","q_accept","q_reject"],"inputAlphabet":["0","1"],"tapeAlphabet":["0","1","_"],"blank":"_","startState":"q_even","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_even","read":"0","write":"0","move":"R","next":"q_even"},{"state":"q_even","read":"1","write":"1","move":"R","next":"q_odd"},{"state":"q_even","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"q_odd","read":"0","write":"0","move":"R","next":"q_odd"},{"state":"q_odd","read":"1","write":"1","move":"R","next":"q_even"},{"state":"q_odd","read":"_","write":"_","move":"N","next":"q_reject"}],"examples":[{"input":"","expected":"accept","note":"0 个 1，偶数"},{"input":"0","expected":"accept","note":"0 个 1"},{"input":"1","expected":"reject","note":"1 个 1，奇数"},{"input":"101","expected":"accept","note":"2 个 1"},{"input":"111","expected":"reject","note":"3 个 1"}]},{"name":"equal_01_count","summary":"输入 0/1 串，若 0 的个数与 1 的个数相等则接受，否则拒绝（不要求修改带）","assumptions":["空串视为 0=0，接受"],"encoding":"输入为 0/1 串。每轮从最左端找第一个未配对的 0 划成 X，然后回到最左端再找第一个未配对的 1 划成 Y（1 可能在左边，所以必须从最左端重新扫）。当找不到未配对的 0 时，检查是否还有未配对的 1。","states":["q_l","q_mark1","q_seek1","q_home","q_check","q_checkL","q_accept","q_reject"],"inputAlphabet":["0","1"],"tapeAlphabet":["0","1","X","Y","_"],"blank":"_","startState":"q_l","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_l","read":"X","write":"X","move":"R","next":"q_l"},{"state":"q_l","read":"Y","write":"Y","move":"R","next":"q_l"},{"state":"q_l","read":"1","write":"1","move":"R","next":"q_l"},{"state":"q_l","read":"0","write":"X","move":"L","next":"q_mark1"},{"state":"q_l","read":"_","write":"_","move":"N","next":"q_check"},{"state":"q_mark1","read":"0","write":"0","move":"L","next":"q_mark1"},{"state":"q_mark1","read":"1","write":"1","move":"L","next":"q_mark1"},{"state":"q_mark1","read":"X","write":"X","move":"L","next":"q_mark1"},{"state":"q_mark1","read":"Y","write":"Y","move":"L","next":"q_mark1"},{"state":"q_mark1","read":"_","write":"_","move":"R","next":"q_seek1"},{"state":"q_seek1","read":"X","write":"X","move":"R","next":"q_seek1"},{"state":"q_seek1","read":"Y","write":"Y","move":"R","next":"q_seek1"},{"state":"q_seek1","read":"0","write":"0","move":"R","next":"q_seek1"},{"state":"q_seek1","read":"1","write":"Y","move":"L","next":"q_home"},{"state":"q_seek1","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q_home","read":"0","write":"0","move":"L","next":"q_home"},{"state":"q_home","read":"1","write":"1","move":"L","next":"q_home"},{"state":"q_home","read":"X","write":"X","move":"L","next":"q_home"},{"state":"q_home","read":"Y","write":"Y","move":"L","next":"q_home"},{"state":"q_home","read":"_","write":"_","move":"R","next":"q_l"},{"state":"q_check","read":"_","write":"_","move":"L","next":"q_checkL"},{"state":"q_checkL","read":"1","write":"1","move":"N","next":"q_reject"},{"state":"q_checkL","read":"0","write":"0","move":"N","next":"q_reject"},{"state":"q_checkL","read":"X","write":"X","move":"L","next":"q_checkL"},{"state":"q_checkL","read":"Y","write":"Y","move":"L","next":"q_checkL"},{"state":"q_checkL","read":"_","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"","expected":"accept","note":"0=0"},{"input":"01","expected":"accept","note":"1=1"},{"input":"10","expected":"accept","note":"1=1，1 在左边也要能配上"},{"input":"0011","expected":"accept","note":"2=2"},{"input":"0101","expected":"accept","note":"2=2"},{"input":"0","expected":"reject","note":"1≠0"},{"input":"1","expected":"reject","note":"0≠1"},{"input":"00","expected":"reject","note":"2≠0"},{"input":"001","expected":"reject","note":"2≠1"},{"input":"0111","expected":"reject","note":"1≠3"}]}]},{"id":"unary-arithmetic","title":"一元数运算与比较","keywords":["一元","unary","2的幂","二的幂","幂","power","质数","合数","比较","大于","小于","等于","相等","加法","减法","乘法","除以","倍数","n个1","n 个 1"],"tags":["arithmetic","language"],"body":"# 模式：一元数运算与比较\n\n一元编码 `1^n` 表示整数 n。这是最容易出错的家族，务必按套路做。\n\n## 通用起点\n- 清零/边界：空串通常代表 n=0；题面要求 n≥1 时，要把 `_` 直接送到 reject。\n- 「块」= 连续的 `1`（处理过程中可能夹着标记 `X`）。**块尾是 `_`，不要用 `0` 当块尾**。\n\n## A. 相等 / 比较大小（unary_equal 参考机）\n`1^a 0 1^b` → 每次左右各划掉一个 1（写 X），谁先耗尽谁小；\n两边同时耗尽 → 相等。\n- 求「a ≤ b」：左块耗尽时右块还有 1 → 接受。\n- 求「a ≥ b」：右块耗尽时左块还有 1 → 接受。\n\n## B. 加法（unary_add 参考机）\n`1^a + 1^b` → 和是 a+b。\n技巧：把分隔符 `+` 写成 `1`（此时带上变成 `1^(a+b+1)`），再**回到最左端删掉第一个 1**，\n剩下的就是 `1^(a+b)`。删掉最左的 1 会留下一个首部空白，输出时自然被裁剪。\n> 千万不要「把分隔符改成 1 就收工」，那是 a+b+1，多了一个。\n\n## C. 是否为 2 的幂（power_of_two 参考机）\n反复把 1 的个数除以 2（把第 2、4、6… 个 1 划成 X）：\n- 一轮结束后若 1 的个数为奇数：\n  - 且本轮一个都没划掉（说明只剩 1 个）→ 接受；\n  - 否则（奇数且 >1）→ 拒绝；\n- 若为偶数 → 继续下一轮。\n实现时用 4 个状态 `h{p}{d}` 记录「下一个 1 是保留(p=0)还是划掉(p=1)」和「本轮是否划过(d)」。\n- 空串（0）不是 2 的幂 → 拒绝；1 是 2^0 → 接受。\n\n## D. 乘法（a×b）\n`1^a * 1^b`：把「* 后面的 1^b」整体复制 a 份追加到右边。\n每复制一份就在第一个块里划掉一个 1 做计数。状态需求较大，若超限可先只保证语义正确再合并状态。\n\n## E. 减 / 整除\n- `1^a - 1^b`（保证 a≥b）：从右块每个 1 去左边消掉一个 1。\n- 「n 能被 3 整除」：一元除法三状态轮换（余数 0/1/2），扫完整块看余数是否为 0。\n\n## 常见坑\n- 把「2 的幂」判断写成只看奇偶（漏掉 3、6、12 这类）。\n- 处理块尾时没有跳过 X，导致把中间空洞当成串尾。\n- 减法没有检查被减数是否够大。\n","refs":[{"name":"unary_add","summary":"一元加法 1^a + 1^b：把分隔符 + 改成 1，再删掉最左边的一个 1，得到 1^(a+b)","assumptions":["输入形如 1^a + 1^b，a,b≥0（空块合法）"],"encoding":"输入为 1^a + 1^b。先把分隔符 + 写成 1（这时带上是 1^(a+b+1)），再回到最左端删掉第一个 1，于是剩下 1^(a+b)。删掉最左的 1 会在串首留下一个空白，但输出带会自然裁剪掉它。","states":["q_scan","q_home","q_del","q_accept","q_reject"],"inputAlphabet":["1","+"],"tapeAlphabet":["1","+","_"],"blank":"_","startState":"q_scan","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_scan","read":"1","write":"1","move":"R","next":"q_scan"},{"state":"q_scan","read":"+","write":"1","move":"L","next":"q_home"},{"state":"q_scan","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q_home","read":"1","write":"1","move":"L","next":"q_home"},{"state":"q_home","read":"_","write":"_","move":"R","next":"q_del"},{"state":"q_del","read":"1","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"1+1","expected":"accept","output":"11","note":"1+1=2"},{"input":"1+11","expected":"accept","output":"111","note":"1+2=3"},{"input":"111+11","expected":"accept","output":"11111","note":"3+2=5"},{"input":"1+","expected":"accept","output":"1","note":"1+0=1"},{"input":"+","expected":"accept","output":"","note":"0+0=0"}]},{"name":"unary_equal","summary":"输入 1^a 0 1^b（一元数 a、b 用 0 分隔），若 a=b 则接受，否则拒绝","assumptions":["输入形如 1^a 0 1^b，a,b≥0；分隔符为 0","空输入视为非法，直接拒绝"],"encoding":"输入为 1^a 0 1^b。用 X 划掉已配对的 1：回到带首找到左块最左的 1 划成 X，右扫过分隔符后找到右块最左的 1 划成 X，再回到带首重复。左块先耗尽时检查右块是否也全是 X。","states":["q_l","q_to_sep","q_r","q_home","q_scanR","q_accept","q_reject"],"inputAlphabet":["0","1"],"tapeAlphabet":["0","1","X","_"],"blank":"_","startState":"q_l","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_l","read":"X","write":"X","move":"R","next":"q_l"},{"state":"q_l","read":"1","write":"X","move":"R","next":"q_to_sep"},{"state":"q_l","read":"0","write":"0","move":"R","next":"q_scanR"},{"state":"q_l","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q_to_sep","read":"1","write":"1","move":"R","next":"q_to_sep"},{"state":"q_to_sep","read":"X","write":"X","move":"R","next":"q_to_sep"},{"state":"q_to_sep","read":"0","write":"0","move":"R","next":"q_r"},{"state":"q_r","read":"X","write":"X","move":"R","next":"q_r"},{"state":"q_r","read":"1","write":"X","move":"L","next":"q_home"},{"state":"q_r","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q_home","read":"1","write":"1","move":"L","next":"q_home"},{"state":"q_home","read":"X","write":"X","move":"L","next":"q_home"},{"state":"q_home","read":"0","write":"0","move":"L","next":"q_home"},{"state":"q_home","read":"_","write":"_","move":"R","next":"q_l"},{"state":"q_scanR","read":"X","write":"X","move":"R","next":"q_scanR"},{"state":"q_scanR","read":"1","write":"1","move":"N","next":"q_reject"},{"state":"q_scanR","read":"_","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"0","expected":"accept","note":"a=b=0"},{"input":"101","expected":"accept","note":"a=b=1"},{"input":"11011","expected":"accept","note":"a=b=2"},{"input":"1110111","expected":"accept","note":"a=b=3"},{"input":"10","expected":"reject","note":"a=1, b=0"},{"input":"1011","expected":"reject","note":"a=1, b=2"}]},{"name":"power_of_two","summary":"判断一元数 n（n 个 1，n≥1）是否为 2 的幂：1,2,4,8,… 接受，其余拒绝","assumptions":["输入为空（0 个 1）视为拒绝","输入是一元编码 1^n"],"encoding":"输入为 1^n。反复做「半数」：把块里第 2、4、6… 个 1 划掉（写成 X）。若某轮发现 1 的个数是奇数且 >1 则拒绝；直到块中只剩 1 个 1（无划除发生）则接受。","states":["q_start","q_find_left","h0d0","h0d1","h1d0","h1d1","q_accept","q_reject"],"inputAlphabet":["1"],"tapeAlphabet":["1","X","_"],"blank":"_","startState":"q_start","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_start","read":"1","write":"1","move":"L","next":"q_find_left"},{"state":"q_start","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q_find_left","read":"1","write":"1","move":"L","next":"q_find_left"},{"state":"q_find_left","read":"X","write":"X","move":"L","next":"q_find_left"},{"state":"q_find_left","read":"_","write":"_","move":"R","next":"h0d0"},{"state":"h0d0","read":"1","write":"1","move":"R","next":"h1d0"},{"state":"h0d0","read":"X","write":"X","move":"R","next":"h0d0"},{"state":"h0d0","read":"_","write":"_","move":"L","next":"q_find_left"},{"state":"h1d0","read":"1","write":"X","move":"R","next":"h0d1"},{"state":"h1d0","read":"X","write":"X","move":"R","next":"h1d0"},{"state":"h1d0","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"h0d1","read":"1","write":"1","move":"R","next":"h1d1"},{"state":"h0d1","read":"X","write":"X","move":"R","next":"h0d1"},{"state":"h0d1","read":"_","write":"_","move":"L","next":"q_find_left"},{"state":"h1d1","read":"1","write":"X","move":"R","next":"h0d1"},{"state":"h1d1","read":"X","write":"X","move":"R","next":"h1d1"},{"state":"h1d1","read":"_","write":"_","move":"N","next":"q_reject"}],"examples":[{"input":"1","expected":"accept","note":"1 = 2^0"},{"input":"11","expected":"accept","note":"2 = 2^1"},{"input":"111","expected":"reject","note":"3 不是 2 的幂（奇数且 >1）"},{"input":"1111","expected":"accept","note":"4 = 2^2"},{"input":"11111","expected":"reject","note":"5 不是"},{"input":"11111111","expected":"accept","note":"8 = 2^3"},{"input":"","expected":"reject","note":"0 不是 2 的幂"}]}]},{"id":"binary-arithmetic","title":"二进制运算","keywords":["二进制","binary","加一","加1","increment","减一","减1","进位","最高位","最低位","位运算"],"tags":["arithmetic","transducer"],"body":"# 模式：二进制运算\n\n## 二进制加一（binary_increment 参考机）\n输入高位在左。算法固定，直接背下来：\n\n```\nq_start: 0→0,R,q_scan ; 1→1,R,q_scan ; _→_,N,q_reject   // 空串视为非法输入\nq_scan : 0→0,R,q_scan ; 1→1,R,q_scan ; _→_,L,q_carry    // 走到最低位右侧\nq_carry: 0→1,N,q_accept                                  // 遇到 0，进位停止\nq_carry: 1→0,L,q_carry                                   // 连续 1 变 0，继续进位\nq_carry: _→1,N,q_accept                                  // 全 1，最左补一位\n```\n\n- `111 → 1000`（向左多写一位），`1011 → 1100`，`0 → 1`。\n- **空串输入一般视为非法**（没有二进制数字），直接拒绝；如果题面说空串代表 0，则加一得 1。写规格时要明确这一点，否则容易在空串上产生分歧。\n- 若要求「不扩展纸带、溢出则拒绝」，把 `q_carry` 读 `_` 的转移改成 reject。\n\n## 二进制比较是否全 1 / 是否有 0\n最简单：右扫描，用两个状态记录「是否已经看到 0」。这仍然属于奇偶式技巧。\n\n## 二进制加法 / 减法\n- 两个二进制数相减/相加通常需要把两个串都放在带上（用分隔符）并做逐位处理。\n  若题目没给两个数，多半只需要「加一」这类就地变换。\n- 若状态数吃紧，优先用 `N` 省掉「移动—回退」的成对状态。\n\n## 常见坑\n- 扫描到 `_` 后忘记 `L` 回到最低位，直接从空白开始进位。\n- 全 1 情况没处理（结果为 `1` 后面跟一串 `0`）。\n- 把最低位放在左边（编码写反）。**写清 `encoding`：高位在左还是右。**\n","refs":[{"name":"binary_increment","summary":"把纸带上的二进制数加 1（原地修改），例如 1011 → 1100、111 → 1000；空串视为非法输入，拒绝","assumptions":["输入是高位在左的二进制串，且至少有一位","允许结果比输入多一位（在最左边空白处补 1）"],"encoding":"输入为二进制串，最高位在最左；_ 表示串尾。先从最左端确认至少有一位数字，再走到最低位，进位从最低位向左传播。","states":["q_start","q_scan","q_carry","q_accept","q_reject"],"inputAlphabet":["0","1"],"tapeAlphabet":["0","1","_"],"blank":"_","startState":"q_start","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_start","read":"0","write":"0","move":"R","next":"q_scan"},{"state":"q_start","read":"1","write":"1","move":"R","next":"q_scan"},{"state":"q_start","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q_scan","read":"0","write":"0","move":"R","next":"q_scan"},{"state":"q_scan","read":"1","write":"1","move":"R","next":"q_scan"},{"state":"q_scan","read":"_","write":"_","move":"L","next":"q_carry"},{"state":"q_carry","read":"0","write":"1","move":"N","next":"q_accept"},{"state":"q_carry","read":"1","write":"0","move":"L","next":"q_carry"},{"state":"q_carry","read":"_","write":"1","move":"N","next":"q_accept"}],"examples":[{"input":"","expected":"reject","note":"空串没有二进制数字，非法输入"},{"input":"0","expected":"accept","output":"1","note":"0+1=1"},{"input":"1011","expected":"accept","output":"1100","note":"11+1=12"},{"input":"111","expected":"accept","output":"1000","note":"7+1=8，向左多写一位"}]}]},{"id":"palindrome","title":"回文判定","keywords":["回文","palindrome","正读反读","镜像","对称"],"tags":["language","two-pointer"],"body":"# 模式：回文判定\n\n## 核心套路（palindrome_01 参考机）\n每轮做一次「首尾配对」：\n1. 从最左端出发，跳过已标记的 `X`，找到**最左未标记字符**，把它写成 `X`；\n   同时用不同状态记住它是 `0` 还是 `1`（例如进入 `q_r0` / `q_r1`）。\n2. 向右扫描，越过所有未标记字符，撞到 `X` 或 `_` 就 `L` 回一格，\n   停在**最右未标记字符**上。\n3. 与记住的字符比较：\n   - 相同 → 也写成 `X`，然后一路向左回到带首；\n   - 不同 → 立刻 reject。\n4. 回到带首后若已经没有未标记字符（全是 `X`）→ accept。\n\n## 关键点\n- 单字符与空串都是回文：当「右扫立刻撞到 `_` 并 `L` 回来」时，读到的可能是刚写的 `X`\n  或空白，这两种情况都要 accept。\n- 必须区分「记住的是 0」还是「记住的是 1」，所以比较阶段至少要 2 个状态。\n- 标记用 `X` 而不是擦成 blank，否则无法判断「全部匹配完」。\n\n## 变体\n- 字母表更大时（a、b、c…），态数随字母表大小线性增长；若超过状态上限，改用\n  「把右侧符号搬到左侧比较」的另一套编码。\n- 判断「回文前缀」「最长回文子串」这类更难的问题，先问自己是否真的需要，\n  必要时在 `assumptions` 里说明简化。\n","refs":[{"name":"palindrome_01","summary":"判断 0/1 串是否为回文：是则接受，否则拒绝","assumptions":["空串与单字符视为回文"],"encoding":"输入为 0/1 串。每轮把最左未匹配字符写成 X，并记住它是 0 还是 1；再右扫描到最右未匹配字符，比较后也写成 X，最后回到最左端。全部匹配则接受。","states":["q_skipL","q_r0","q_r1","q_cmp0","q_cmp1","q_back","q_accept","q_reject"],"inputAlphabet":["0","1"],"tapeAlphabet":["0","1","X","_"],"blank":"_","startState":"q_skipL","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_skipL","read":"X","write":"X","move":"R","next":"q_skipL"},{"state":"q_skipL","read":"0","write":"X","move":"R","next":"q_r0"},{"state":"q_skipL","read":"1","write":"X","move":"R","next":"q_r1"},{"state":"q_skipL","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"q_r0","read":"0","write":"0","move":"R","next":"q_r0"},{"state":"q_r0","read":"1","write":"1","move":"R","next":"q_r0"},{"state":"q_r0","read":"X","write":"X","move":"L","next":"q_cmp0"},{"state":"q_r0","read":"_","write":"_","move":"L","next":"q_cmp0"},{"state":"q_r1","read":"0","write":"0","move":"R","next":"q_r1"},{"state":"q_r1","read":"1","write":"1","move":"R","next":"q_r1"},{"state":"q_r1","read":"X","write":"X","move":"L","next":"q_cmp1"},{"state":"q_r1","read":"_","write":"_","move":"L","next":"q_cmp1"},{"state":"q_cmp0","read":"0","write":"X","move":"L","next":"q_back"},{"state":"q_cmp0","read":"1","write":"1","move":"N","next":"q_reject"},{"state":"q_cmp0","read":"X","write":"X","move":"N","next":"q_accept"},{"state":"q_cmp0","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"q_cmp1","read":"1","write":"X","move":"L","next":"q_back"},{"state":"q_cmp1","read":"0","write":"0","move":"N","next":"q_reject"},{"state":"q_cmp1","read":"X","write":"X","move":"N","next":"q_accept"},{"state":"q_cmp1","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"q_back","read":"0","write":"0","move":"L","next":"q_back"},{"state":"q_back","read":"1","write":"1","move":"L","next":"q_back"},{"state":"q_back","read":"X","write":"X","move":"L","next":"q_back"},{"state":"q_back","read":"_","write":"_","move":"R","next":"q_skipL"}],"examples":[{"input":"","expected":"accept","note":"空串是回文"},{"input":"0","expected":"accept","note":"单字符"},{"input":"0110","expected":"accept","note":"偶数长度回文"},{"input":"010","expected":"accept","note":"奇数长度回文"},{"input":"0101","expected":"reject","note":"非回文"},{"input":"110","expected":"reject","note":"非回文"}]}]},{"id":"matching-pairs","title":"配对 / 嵌套 / 平衡","keywords":["括号","parenthes","匹配","嵌套","平衡","配对","balance","a^n b^n","anbn","方括号","花括号","栈"],"tags":["language","two-pointer"],"body":"# 模式：配对 / 嵌套 / 平衡\n\n## A. 单种括号的匹配（balance_parens 参考机）\n思路：**反复消去一对「相邻的 ()」**，直到带上一对都找不到；此时若所有格都已标记 `X`\n则接受，否则拒绝。\n\n- 每轮从头扫：跳过 `X`，遇到 `(` 就进入「寻找配对」状态；\n- 向右跳过 `X` 与 `(`，遇到 `)` 就把这个 `)` 写成 `X`，再向左跳过 `X` 找到刚才那个 `(`\n  也写成 `X`；回到带首开始下一轮；\n- 若扫描到 `_` 还没找到 `)`，说明没有配对，进入收尾检查：\n  从右往左扫，只要还有未标记的 `(` 或 `)` → 拒绝；全是 `X` → 接受。\n\n这个算法天然处理嵌套与并列：`(())` 先消内层，`()()` 依次消掉。\n\n## B. a^n b^n（anbn 参考机）\n- 每轮把最左的 `a` 写成 `X`，向右找第一个 `b` 写成 `Y`，再向左回到 `X` 右侧；\n- 当所有 `a` 都是 `X` 后（遇到 `Y` 说明左块处理完），检查右边是否只剩 `Y` 与 `_`。\n\n```\nq1: a→X,R,q2 ; Y→Y,R,q4 ; _→_,N,accept ; b→ reject\nq2: a→a,R   ; Y→Y,R    ; b→Y,L,q3    ; _→ reject\nq3: a→a,L   ; Y→Y,L    ; X→X,R,q1\nq4: Y→Y,R   ; b→ reject ; _→ accept\n```\n\n## C. 混合/多种括号\n单带有限状态**无法**直接判断多种括号的正确嵌套（需要栈）。可行方案：\n- 一种编码技巧：把内层括号对反复消去（同 A），但多种类型要额外判断类型是否匹配；\n- 状态数会迅速膨胀，若超过上限，请在 `assumptions` 中说明只处理单种括号，或改用\n  「配对消去 + 类型检查」的合并状态。\n\n## 常见坑\n- 消去后没有跳过 `X`，把空洞当成相邻。\n- `q_checkL` 只检查了一半就下结论。\n- `a^n b^n` 里忘记处理空串（n=0 应接受）。\n","refs":[{"name":"balance_parens","summary":"判断只含 ( 和 ) 的串括号是否匹配（正确嵌套）：匹配则接受，否则拒绝","assumptions":["空串视为匹配"],"encoding":"输入只含 ( 与 )。重复删除一对「相邻且成对」的 ()：每轮从左到右找非 X 序列中紧邻的 ( )，把两者都写成 X；找不到时如果带上已全是 X 则接受，否则拒绝。","states":["q_rewind","q_scan","q_seek","q_delmatch","q_checkAll","q_checkL","q_accept","q_reject"],"inputAlphabet":["(",")"],"tapeAlphabet":["(",")","X","_"],"blank":"_","startState":"q_rewind","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_rewind","read":"(","write":"(","move":"L","next":"q_rewind"},{"state":"q_rewind","read":")","write":")","move":"L","next":"q_rewind"},{"state":"q_rewind","read":"X","write":"X","move":"L","next":"q_rewind"},{"state":"q_rewind","read":"_","write":"_","move":"R","next":"q_scan"},{"state":"q_scan","read":"X","write":"X","move":"R","next":"q_scan"},{"state":"q_scan","read":")","write":")","move":"R","next":"q_scan"},{"state":"q_scan","read":"(","write":"(","move":"R","next":"q_seek"},{"state":"q_scan","read":"_","write":"_","move":"N","next":"q_checkAll"},{"state":"q_seek","read":"X","write":"X","move":"R","next":"q_seek"},{"state":"q_seek","read":"(","write":"(","move":"R","next":"q_seek"},{"state":"q_seek","read":")","write":"X","move":"L","next":"q_delmatch"},{"state":"q_seek","read":"_","write":"_","move":"N","next":"q_checkAll"},{"state":"q_delmatch","read":"X","write":"X","move":"L","next":"q_delmatch"},{"state":"q_delmatch","read":"(","write":"X","move":"N","next":"q_rewind"},{"state":"q_checkAll","read":"_","write":"_","move":"L","next":"q_checkL"},{"state":"q_checkL","read":"X","write":"X","move":"L","next":"q_checkL"},{"state":"q_checkL","read":"(","write":"(","move":"N","next":"q_reject"},{"state":"q_checkL","read":")","write":")","move":"N","next":"q_reject"},{"state":"q_checkL","read":"_","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"","expected":"accept","note":"空串匹配"},{"input":"()","expected":"accept","note":"一对"},{"input":"(())","expected":"accept","note":"嵌套"},{"input":"()()","expected":"accept","note":"并列"},{"input":"(()","expected":"reject","note":"缺右括号"},{"input":")(","expected":"reject","note":"顺序错误"},{"input":"())(","expected":"reject","note":"多右括号"}]},{"name":"anbn","summary":"判断 a^n b^n 形式（n≥0）：是则接受，否则拒绝","assumptions":["空串视为 n=0，接受"],"encoding":"输入只含 a、b。每轮把最左边的 a 写成 X，向右找到第一个 b 写成 Y，再向左回到 X 之后；当所有 a 都已划掉（遇到 Y）时，检查剩下的 b 是否也都划掉。","states":["q1","q2","q3","q4","q_accept","q_reject"],"inputAlphabet":["a","b"],"tapeAlphabet":["a","b","X","Y","_"],"blank":"_","startState":"q1","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q1","read":"a","write":"X","move":"R","next":"q2"},{"state":"q1","read":"Y","write":"Y","move":"R","next":"q4"},{"state":"q1","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"q1","read":"b","write":"b","move":"N","next":"q_reject"},{"state":"q2","read":"a","write":"a","move":"R","next":"q2"},{"state":"q2","read":"Y","write":"Y","move":"R","next":"q2"},{"state":"q2","read":"b","write":"Y","move":"L","next":"q3"},{"state":"q2","read":"_","write":"_","move":"N","next":"q_reject"},{"state":"q3","read":"a","write":"a","move":"L","next":"q3"},{"state":"q3","read":"Y","write":"Y","move":"L","next":"q3"},{"state":"q3","read":"X","write":"X","move":"R","next":"q1"},{"state":"q4","read":"Y","write":"Y","move":"R","next":"q4"},{"state":"q4","read":"b","write":"b","move":"N","next":"q_reject"},{"state":"q4","read":"_","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"","expected":"accept","note":"n=0"},{"input":"ab","expected":"accept","note":"n=1"},{"input":"aabb","expected":"accept","note":"n=2"},{"input":"aaabbb","expected":"accept","note":"n=3"},{"input":"aab","expected":"reject","note":"b 太少"},{"input":"abb","expected":"reject","note":"a 太少"},{"input":"ba","expected":"reject","note":"顺序错误"},{"input":"abab","expected":"reject","note":"交错"}]}]},{"id":"string-transform","title":"字符替换 / 删除 / 映射","keywords":["替换","replace","换成","改为","删除","去掉","映射","大小写","小写","大写","变换"],"tags":["transducer"],"body":"# 模式：字符替换 / 删除 / 映射\n\n## A. 逐字符替换（replace_a_with_b 参考机）\n```\nq_scan: a→b,R,q_scan ; b→b,R,q_scan ; _→_,N,accept\n```\n三个转移搞定。凡是「把 X 换成 Y / 删除所有 X」都属这一类。\n\n## B. 删除某类符号\n- 「删除所有 0」：把 `0` 写成 blank（`_`），其余右移。带上的空洞会被输出裁剪掉。\n- 若要「紧凑化」（把后面字符搬过来补洞），需要额外的搬运阶段：\n  从左到右找到空洞，把右侧整段左移一格；注意别把串尾的 blank 也搬进来。\n\n## C. 大小写 / 符号映射\n和 A 完全同构：每个源符号对应一个目标符号，用 `read → write` 直接映射即可。\n字母表变大时状态数不变（只增加转移条数），这是最省状态的题型。\n\n## D. 替换 + 计数限制\n「只把前 k 个 a 换成 b」这类需要计数，有限状态做不到；若 k 是固定常数，\n可以展开成 k 个状态；否则在 `assumptions` 里说明不可实现或改用带上标记。\n\n## 常见坑\n- 忘了处理「保持不变的符号」，导致扫描中断。\n- 删除符号后用 blank 当串尾，却没意识到中间也有了 blank，扫描会提前停止\n  （应改用 `X` 标记而不是擦成 blank）。\n","refs":[{"name":"replace_a_with_b","summary":"把输入串里所有的 a 换成 b，其他字符不变，完成后接受","assumptions":["输入只含 a、b"],"encoding":"输入为 a/b 串。右扫描，遇到 a 就写成 b，遇到 b 保持不变；扫到空白后接受。","states":["q_scan","q_accept","q_reject"],"inputAlphabet":["a","b"],"tapeAlphabet":["a","b","_"],"blank":"_","startState":"q_scan","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_scan","read":"a","write":"b","move":"R","next":"q_scan"},{"state":"q_scan","read":"b","write":"b","move":"R","next":"q_scan"},{"state":"q_scan","read":"_","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"ab","expected":"accept","output":"bb","note":"a→b"},{"input":"aaa","expected":"accept","output":"bbb","note":"全替换"},{"input":"","expected":"accept","output":"","note":"空串"}]}]},{"id":"copy-duplicate","title":"复制 / 追加 / 编码","keywords":["复制","拷贝","copy","duplicate","追加","append","重复一遍","分隔符","加个","后面加","编码"],"tags":["transducer"],"body":"# 模式：复制 / 追加\n\n## 核心套路（copy_string_ab 参考机）\n目标 `w → w#w`。做法：\n\n1. **加分隔符**：右扫描到 `_`，写 `#`；\n2. 循环：\n   - 回到带首，找到**第一个未复制的源字符**（用大写 `A`/`B` 标记「已复制」，扫描时跳过）；\n   - 把它改写成对应大写标记，然后右行到带尾第一个 `_`，写下对应小写字符；\n3. 若回到带首后遇到 `#`（说明源串已全部复制）→ 收尾；\n4. **收尾还原**：从 `#` 往左走，把 `A→a`、`B→b` 还原，最后 accept。\n\n关键点：\n- 源串与大写标记都在 `#` 左边，复制结果在 `#` 右边；「找源字符」的扫描必须在遇到 `#` 时停下，\n  否则会把复制出来的小写字符又当成源字符，无限复制。\n- 复制字符时用 `N`/直接写即可，不必额外移动。\n\n## 变体\n- `w → w w`（不加分隔符）：把分隔符也去掉即可，但要注意源/目标边界，建议仍用 `#` 再删除。\n- `w → w^R`（反转复制）：把「向右找到带尾写下」改成从右往左读源串写到右边。\n- 把一个串追加到另一个串后面：本质相同，先跳到第一个串尾再加分隔符。\n\n## 常见坑\n- 忘记还原大写标记，输出带变成 `AB#ab` 而不是 `ab#ab`。\n- 「找源字符」的循环没有以 `#` 为界。\n- 空串输入：此时带上只有 `#`，应直接收尾并接受（输出 `#`），别陷入死循环。\n","refs":[{"name":"copy_string_ab","summary":"把输入串复制一遍：w → w#w（例如 ab → ab#ab）","assumptions":["输入只含 a、b","要求在带上得到 w#w，源串保持原样"],"encoding":"先在原串右端写 # 作分隔。每轮回到最左端，找第一个未复制的 a 或 b，把它改写成大写标记 A/B 表示已复制，然后走到带尾空白处写下对应的小写字符。全部复制完后，回程把 A/B 还原成 a/b。","states":["q_init","q_home","q_find","q_to_a","q_to_b","q_clean","q_accept","q_reject"],"inputAlphabet":["a","b"],"tapeAlphabet":["a","b","A","B","#","_"],"blank":"_","startState":"q_init","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"q_init","read":"a","write":"a","move":"R","next":"q_init"},{"state":"q_init","read":"b","write":"b","move":"R","next":"q_init"},{"state":"q_init","read":"_","write":"#","move":"N","next":"q_home"},{"state":"q_home","read":"a","write":"a","move":"L","next":"q_home"},{"state":"q_home","read":"b","write":"b","move":"L","next":"q_home"},{"state":"q_home","read":"A","write":"A","move":"L","next":"q_home"},{"state":"q_home","read":"B","write":"B","move":"L","next":"q_home"},{"state":"q_home","read":"#","write":"#","move":"L","next":"q_home"},{"state":"q_home","read":"_","write":"_","move":"R","next":"q_find"},{"state":"q_find","read":"A","write":"A","move":"R","next":"q_find"},{"state":"q_find","read":"B","write":"B","move":"R","next":"q_find"},{"state":"q_find","read":"a","write":"A","move":"R","next":"q_to_a"},{"state":"q_find","read":"b","write":"B","move":"R","next":"q_to_b"},{"state":"q_find","read":"#","write":"#","move":"N","next":"q_clean"},{"state":"q_to_a","read":"a","write":"a","move":"R","next":"q_to_a"},{"state":"q_to_a","read":"b","write":"b","move":"R","next":"q_to_a"},{"state":"q_to_a","read":"A","write":"A","move":"R","next":"q_to_a"},{"state":"q_to_a","read":"B","write":"B","move":"R","next":"q_to_a"},{"state":"q_to_a","read":"#","write":"#","move":"R","next":"q_to_a"},{"state":"q_to_a","read":"_","write":"a","move":"N","next":"q_home"},{"state":"q_to_b","read":"a","write":"a","move":"R","next":"q_to_b"},{"state":"q_to_b","read":"b","write":"b","move":"R","next":"q_to_b"},{"state":"q_to_b","read":"A","write":"A","move":"R","next":"q_to_b"},{"state":"q_to_b","read":"B","write":"B","move":"R","next":"q_to_b"},{"state":"q_to_b","read":"#","write":"#","move":"R","next":"q_to_b"},{"state":"q_to_b","read":"_","write":"b","move":"N","next":"q_home"},{"state":"q_clean","read":"#","write":"#","move":"L","next":"q_clean"},{"state":"q_clean","read":"A","write":"a","move":"L","next":"q_clean"},{"state":"q_clean","read":"B","write":"b","move":"L","next":"q_clean"},{"state":"q_clean","read":"_","write":"_","move":"N","next":"q_accept"}],"examples":[{"input":"ab","expected":"accept","output":"ab#ab","note":"复制 ab"},{"input":"a","expected":"accept","output":"a#a","note":"单字符"},{"input":"","expected":"accept","output":"#","note":"空串复制后只有分隔符"},{"input":"bba","expected":"accept","output":"bba#bba","note":"多字符"}]}]},{"id":"sorting","title":"排序 / 重排","keywords":["排序","sort","冒泡","bubble","升序","降序","0在前","1在后","重排","排列","有序","排到","排成","前面","移动到前面","按顺序"],"tags":["transducer"],"body":"# 模式：排序 / 重排\n\n## A. 0/1 排序（sort_01 参考机）—— 冒泡\n反复做「一趟扫描」：向右看相邻两个符号，遇到 `10` 就交换成 `01`。\n若某趟**没有发生任何交换**，说明已经有序，accept。\n\n用 4 个扫描状态表达「本趟是否交换过 × 上一个看到的是不是 1」：\n\n```\nn0: 0→0,R,n0 ; 1→1,R,n1 ; _→ accept        // 没换过，上一个是 0\nn1: 0→1,L,q_swap ; 1→1,R,n1 ; _→ accept     // 没换过，上一个是 1\ns0: 0→0,R,s0 ; 1→1,R,s1 ; _→ rewind          // 换过，上一个是 0\ns1: 0→1,L,q_swap ; 1→1,R,s1 ; _→ rewind      // 换过，上一个是 1\nq_swap: 1→0,R,s1                              // 把左边的 1 改成 0，回到右边\nq_rewind: 0→0,L,q_rewind ; 1→1,L,q_rewind ; _→_,R,n0\n```\n- `n*` 状态在遇到 `_` 时直接 accept，是因为「本趟没换过 ⇒ 已有序」。\n- `q_swap` 里我们已经在右边那个 `0` 上写过 `1`，所以只需把左边的 `1` 写成 `0`。\n\n## B. 其他重排\n- 「把所有 a 移到前面」：与 A 同构，交换条件改成 `ba → ab`。\n- 真正的多键排序（数字、字符串）在单带有限状态上不现实，需要在 `assumptions` 里说明。\n\n## 常见坑\n- 交换时方向搞反，变成来回横跳。\n- 忘记「没交换就结束」的判定，机器永远在扫描。\n- 空串与已有序串没有直接 accept 的出口，导致无转移停机（若题面接受停机也可以，\n  但显式 accept 更安全）。\n","refs":[{"name":"sort_01","summary":"把 0/1 串排序成所有 0 在前、所有 1 在后（原地修改），完成后接受","assumptions":["输入只含 0 和 1"],"encoding":"输入为 0/1 串。反复做一趟冒泡：向右扫描，遇到相邻的 10 就交换成 01。若某趟没有发生任何交换，说明已排好序，接受。","states":["n0","n1","s1","q_swap","q_rewind","q_accept","q_reject"],"inputAlphabet":["0","1"],"tapeAlphabet":["0","1","_"],"blank":"_","startState":"n0","acceptState":"q_accept","rejectState":"q_reject","transitions":[{"state":"n0","read":"0","write":"0","move":"R","next":"n0"},{"state":"n0","read":"1","write":"1","move":"R","next":"n1"},{"state":"n0","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"n1","read":"0","write":"1","move":"L","next":"q_swap"},{"state":"n1","read":"1","write":"1","move":"R","next":"n1"},{"state":"n1","read":"_","write":"_","move":"N","next":"q_accept"},{"state":"s1","read":"0","write":"1","move":"L","next":"q_swap"},{"state":"s1","read":"1","write":"1","move":"R","next":"s1"},{"state":"s1","read":"_","write":"_","move":"L","next":"q_rewind"},{"state":"q_swap","read":"1","write":"0","move":"R","next":"s1"},{"state":"q_rewind","read":"0","write":"0","move":"L","next":"q_rewind"},{"state":"q_rewind","read":"1","write":"1","move":"L","next":"q_rewind"},{"state":"q_rewind","read":"_","write":"_","move":"R","next":"n0"}],"examples":[{"input":"10","expected":"accept","output":"01","note":"交换一次"},{"input":"1100","expected":"accept","output":"0011","note":"多趟冒泡"},{"input":"101","expected":"accept","output":"011","note":"部分有序"},{"input":"","expected":"accept","output":"","note":"空串"},{"input":"0011","expected":"accept","output":"0011","note":"已有序"},{"input":"111000","expected":"accept","output":"000111","note":"全反序"}]}]},{"id":"substring-search","title":"子串 / 模式出现","keywords":["包含","含有","子串","substring","出现","contains","模式","连续","检测到"],"tags":["language"],"body":"# 模式：子串 / 模式出现\n\n## A. 固定短模式（如「包含 01」「包含 010」）\n用「已匹配前缀长度」当状态：\n```\nq0: 0→0,R,q1 ; 1→1,R,q0        // 还没匹配到任何前缀\nq1: 1→1,R,q_accept             // 匹配到 \"01\"\nq_accept: ...\n```\n- 每读一个字符，更新「已经匹配了模式的多长前缀」。\n- 长度 k 的模式最多需要 k 个状态，且要正确处理失配回退（KMP 的直觉）。\n\n## B. 头尾固定（如「以 0 开头、以 1 结尾」）\n两个状态即可：先看第一个符号，再一路扫到串尾检查最后一个符号。\n\n## C. 子序列（不要求连续）\n「是否为 01 的子序列」= 依次找 0，再找 1；状态数等于模式长度。\n注意与「子串」区分：子序列允许中间夹别的字符。\n\n## D. 判定「只含某模式」\n若语言是正则的，几乎都能用「前缀匹配状态机」直接写成转移表；\n真正不能用有限状态解决的（如 `a^n b^n`、回文）请参考对应的配对/回文模式。\n\n## 常见坑\n- 失配后没有回退到正确的状态。\n- 把子序列当成子串处理（或反之）。\n- 忘记「空串」「模式长度超过输入」的边界。\n","refs":[]},{"id":"divisibility","title":"整除 / 模运算","keywords":["整除","倍","余数","mod","模","3的倍数","被3整除","被2整除","长度是","长度"],"tags":["language","arithmetic"],"body":"# 模式：整除 / 模运算\n\n## A. 一元数「能被 k 整除」\n一元 `1^n` 除以 k 的余数只有 k 种，用 k 个状态轮换：\n```\nr0, r1, ..., r(k-1)\nri: 1→1,R,r((i+1) mod k) ; _→_,N,(i==0 ? accept : reject)\n```\n例如「n 能被 3 整除」就是 3 个状态 + accept/reject。\n- **是不是 2 的幂** 不能只看「被 2 整除」，必须反复除到 1，见一元数模式里的 power_of_two。\n\n## B. 二元串「1 的个数能被 k 整除」\n同上，扫描时按符号切换余数状态。\n\n## C. 二进制数对 k 取模\n从左到右扫描二进制位，状态为当前余数：\n`new = (old*2 + bit) mod k`。k 个状态即可，例如「二进制数能被 3 整除」用 3 个状态。\n- 注意空串通常表示 0，0 能被任何 k 整除。\n\n## D. 长度约束\n「长度是 3 的倍数」= 一元/二元都一样的余数轮换，只是针对「步数」而非「1 的个数」。\n\n## 常见坑\n- 把「被 k 整除」写成「k 的倍数且不含 0」，多加无谓状态。\n- 二进制取模时忘记 `old*2` 这一步。\n- 余数状态回收顺序写错（`(i+1) mod k` 写成 `i+1`）。\n","refs":[]}]};
+</script>
+<script>
+/* ===== 技能检索 ===== */
+/*
+ * skills.js — 网页版技能检索（数据由构建脚本从 skills/ 内联为 window.TM_SKILLS）
+ * 与 lib/skills.js 的检索逻辑保持一致。
+ */
+(function (root) {
+  'use strict';
+
+  const DATA = root.TM_SKILLS || { core: '', skills: [] };
+
+  function scoreSkill(skill, hay) {
+    let score = 0;
+    const hits = [];
+    for (const kw of skill.keywords || []) {
+      const k = String(kw).toLowerCase();
+      if (!k) continue;
+      if (hay.includes(k)) {
+        score += Math.min(k.length, 8) + 2; // 长词更有区分度
+        hits.push(kw);
+      }
+    }
+    return { score, hits };
+  }
+
+  function select(description, opts = {}) {
+    const max = opts.max == null ? 3 : opts.max;
+    const maxRefs = opts.maxRefs == null ? 3 : opts.maxRefs;
+    const hay = String(description || '').toLowerCase();
+
+    const scored = DATA.skills.map((s) => {
+      const r = scoreSkill(s, hay);
+      return { skill: s, score: r.score, hits: r.hits };
+    }).filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score || a.skill.id.localeCompare(b.skill.id));
+
+    const picked = scored.slice(0, max).map((x) => x.skill);
+
+    const references = [];
+    const seen = new Set();
+    for (const sk of picked) {
+      for (const ref of sk.refs || []) {
+        if (seen.has(ref.name)) continue;
+        seen.add(ref.name);
+        references.push(ref);
+        if (references.length >= maxRefs) break;
+      }
+      if (references.length >= maxRefs) break;
+    }
+
+    const matched = {};
+    for (const x of scored) matched[x.skill.id] = { score: x.score, hits: x.hits };
+
+    return {
+      core: DATA.core,
+      picked,
+      references,
+      ids: picked.map((s) => s.id),
+      titles: picked.map((s) => `${s.id}（${s.title}）`),
+      matched,
+    };
+  }
+
+  function renderPatterns(picked) {
+    return picked.map((s) => `\n<!-- skill:${s.id} -->\n${(s.body || '').trim()}\n`).join('\n');
+  }
+
+  function renderReference(tm) {
+    const L = [];
+    L.push(`### 参考机 ${tm.name} — ${tm.summary}`);
+    if (tm.encoding) L.push(`编码：${tm.encoding}`);
+    L.push(`Σ={${(tm.inputAlphabet || []).join(',')}}  Γ={${(tm.tapeAlphabet || []).join(',')}}  blank=${tm.blank}  start=${tm.startState}  accept=${tm.acceptState}  reject=${tm.rejectState}`);
+    L.push('转移（当前状态 读 → 写,移动 下一状态）：');
+    for (const t of tm.transitions || []) L.push(`  ${t.state} ${t.read} → ${t.write},${t.move} ${t.next}`);
+    const ex = (tm.examples || []).map((e) => {
+      const inp = e.input === '' ? 'ε' : e.input;
+      const out = e.output == null ? '' : ` 输出 ${e.output === '' ? 'ε' : e.output}`;
+      return `${inp}→${e.expected}${out}`;
+    });
+    if (ex.length) L.push(`已验示例：${ex.join('；')}`);
+    return L.join('\n');
+  }
+
+  function listSkills() {
+    return DATA.skills.map((s) => ({
+      id: s.id,
+      title: s.title,
+      keywords: s.keywords,
+      references: (s.refs || []).map((r) => r.name),
+    }));
+  }
+
+  root.TM_SKILLS_LIB = { select, renderPatterns, renderReference, listSkills, data: DATA };
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+/* ===== 编译流水线 ===== */
+/*
+ * pipeline.js — NL2TM 编译流水线（Node 与浏览器共用）
+ *
+ *   自然语言
+ *     ↓ ①技能检索          skills.select() 选出相关套路 + 已验证的参考机
+ *     ↓ ②规格抽取（快）     把需求形式化成 encoding / accept 条件 / 独立测试集
+ *     ↓ ③生成 TM            注入技能与规格，让模型输出 JSON
+ *     ↓ ④extractJson/normalize/validate   容错解析 + 结构校验
+ *     ↓ ⑤独立验证           用规格测试集 + 机器自述示例 + 有界穷举，跑模拟器比对
+ *     ↓ ⑥带反例回修         结构/语义失败都带着具体反例重问（最多 N 轮）
+ *     ↓ ⑦可选审计           有界穷举结果交给模型复核
+ *   图灵机 + 规格 + 验证报告
+ *
+ * 依赖注入：Node 用 config.js/deepseek.js/skills.js；浏览器用 TM-Web/src/runtime.js 里的
+ * TM_WEB_CONFIG/TM_WEB_CALLCHAT 与 TM_SKILLS_LIB。提示词在 prompts.js（两边共用）。
+ */
+(function (root, factory) {
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = factory(
+      require('../public/tm.js'),
+      require('./config').CONFIG,
+      require('./deepseek').callChat,
+      require('./skills'),
+      require('./prompts')
+    );
+  } else {
+    root.TM_PIPELINE = factory(
+      root.TM,
+      root.TM_WEB_CONFIG,
+      root.TM_WEB_CALLCHAT,
+      root.TM_SKILLS_LIB,
+      root.TM_PROMPTS
+    );
+  }
+})(typeof self !== 'undefined' ? self : this, function (TM, CONFIG, callChat, skills, P) {
+  'use strict';
+
+  const SCAN_CFG = () => ({ scanMaxLen: CONFIG.scanMaxLen, scanMaxSteps: CONFIG.scanMaxSteps });
+
+/* ------------------------------------------------------------------ */
+/* 规格抽取                                                            */
+/* ------------------------------------------------------------------ */
+
+async function extractSpec(description, sk, opts = {}) {
+  const skillTxt = (sk.core ? `\n\n===== 通用设计法则 =====\n${sk.core.trim()}` : '')
+    + (sk.picked.length ? `\n\n===== 相关专项套路（用于确定编码与边界约定）=====\n${skills.renderPatterns(sk.picked)}` : '');
+  const messages = [
+    { role: 'system', content: P.SPEC_PROMPT + skillTxt },
+    { role: 'user', content: `请为下面的需求生成规格：\n\n"""\n${description}\n"""` },
+  ];
+  const r = await callChat(messages, {
+    model: opts.specModel || opts.model || CONFIG.specModel,
+    deep: false,
+    maxTokens: CONFIG.specMaxTokens,
+    temperature: 0.1,
+    retries: 2,
+    signal: opts.signal,
+  });
+  const spec = P.normalizeSpec(TM.extractJson(r.content));
+  return { spec, raw: r.content, usage: r.usage, model: r.model };
+}
+
+/* ------------------------------------------------------------------ */
+/* 可选：规格仲裁（分辨「规格用例错」还是「机器错」）                     */
+/* ------------------------------------------------------------------ */
+
+async function arbitrate(description, spec, verification, opts = {}) {
+  const fails = (verification.failed || []).filter((f) => !f.timeout);
+  if (!fails.length) return null;
+  const list = fails.slice(0, 12).map((f, i) => {
+    const wantOut = f.wantOutput == null ? '' : `，用例期望最终带 "${f.wantOutput === '' ? '（空）' : f.wantOutput}"`;
+    const gotOut = f.wantOutput == null ? '' : `，机器最终带 "${f.gotOutput === '' ? '（空）' : f.gotOutput}"`;
+    return `${i + 1}. 输入 "${f.input === '' ? 'ε' : f.input}"：用例期望 ${f.want}${wantOut}；机器实际 ${f.got}${gotOut}`;
+  }).join('\n');
+
+  const content = `任务描述：\n"""\n${description}\n"""\n\n`
+    + (spec && spec.tests && spec.tests.length
+      ? '规格里的编码与条件：\n' + [spec.encoding, spec.accept_condition, spec.reject_condition, spec.output_rule].filter(Boolean).join('\n') + '\n\n'
+      : '')
+    + `分歧用例：\n${list}`;
+
+  const r = await callChat([
+    { role: 'system', content: P.ARBITRATE_PROMPT },
+    { role: 'user', content },
+  ], {
+    model: opts.specModel || opts.model || CONFIG.specModel,
+    deep: false,
+    maxTokens: 2500,
+    temperature: 0,
+    retries: 2,
+    signal: opts.signal,
+  });
+  let judgments = [];
+  try {
+    const j = TM.extractJson(r.content);
+    judgments = (Array.isArray(j.judgments) ? j.judgments : []).filter((x) => x && x.input != null);
+  } catch (_) { /* 仲裁失败不影响主流程 */ }
+  return { judgments, usage: r.usage, model: r.model };
+}
+
+/* ------------------------------------------------------------------ */
+/* 可选：模型审计（把有界穷举结果交给模型复核）                         */
+/* ------------------------------------------------------------------ */
+
+async function auditMachine(description, spec, tm, scan, opts = {}) {
+  const table = ((scan && scan.table) || [])
+    .filter((r) => P.str(r.input).length <= Math.min(CONFIG.scanMaxLen, 3))
+    .map((r) => `${r.input === '' ? 'ε' : r.input} → ${r.status}`)
+    .join('\n');
+  const content = `任务描述：\n"""\n${description}\n"""\n\n规格：\n${JSON.stringify(spec, null, 0)}\n\n机器（精简）：\n状态：${JSON.stringify(tm.states)}\n转移：${JSON.stringify(tm.transitions)}\n\n小输入上的实际结果：\n${table}`;
+  const r = await callChat([
+    { role: 'system', content: P.AUDIT_PROMPT },
+    { role: 'user', content },
+  ], {
+    model: opts.specModel || opts.model || CONFIG.specModel,
+    deep: false,
+    maxTokens: 2000,
+    temperature: 0,
+    retries: 2,
+    signal: opts.signal,
+  });
+  let mismatches = [];
+  try {
+    const j = TM.extractJson(r.content);
+    mismatches = (Array.isArray(j.mismatches) ? j.mismatches : []).filter((m) => m && TM.normVerdict(m.should_be));
+  } catch (_) { /* 审计失败不影响主流程 */ }
+  return { mismatches, usage: r.usage, model: r.model };
+}
+
+/* ------------------------------------------------------------------ */
+/* 主流程                                                              */
+/* ------------------------------------------------------------------ */
+
+async function convert(description, opts = {}) {
+  const trace = [];
+  const t0 = Date.now();
+  const model = opts.model;
+  const deep = opts.deep === undefined ? CONFIG.deep : Boolean(opts.deep);
+  const specFirst = opts.specFirst === undefined ? CONFIG.specFirst : Boolean(opts.specFirst);
+  const maxAttempts = Number(opts.attempts || CONFIG.attempts);
+
+  // ① 技能检索
+  const sk = skills.select(description, { max: 3, maxRefs: 3 });
+  trace.push({ stage: 'skills', ok: true, picked: sk.ids, references: sk.references.map((r) => r.name) });
+
+  const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  const accUsage = (u) => {
+    if (!u) return;
+    usage.prompt_tokens += u.prompt_tokens || 0;
+    usage.completion_tokens += u.completion_tokens || 0;
+    usage.total_tokens += (u.total_tokens || ((u.prompt_tokens || 0) + (u.completion_tokens || 0)));
+  };
+
+  // ② 规格抽取
+  let spec = null;
+  if (specFirst) {
+    try {
+      const r = await extractSpec(description, sk, opts);
+      spec = r.spec;
+      accUsage(r.usage);
+      trace.push({ stage: 'spec', ok: true, tests: spec.tests.length, task_type: spec.task_type, model: r.model });
+    } catch (e) {
+      trace.push({ stage: 'spec', ok: false, error: e.message });
+      spec = null;
+    }
+  }
+
+  // ③ 生成 + ④⑤⑥ 校验/验证/回修
+  const messages = [
+    { role: 'system', content: P.buildSystem(sk, spec, skills) },
+    { role: 'user', content: `请把下面这段自然语言描述编译成图灵机 JSON：\n\n"""\n${description}\n"""` },
+  ];
+
+  let raw = '';
+  let tm = null;
+  let report = { ok: false, errors: [], warnings: [] };
+  let checks = {
+    verification: { total: 0, passed: 0, failed: [], results: [] },
+    selfCheck: { checked: 0, problems: [] },
+    scan: { tested: 0, counts: { accept: 0, reject: 0, timeout: 0 }, timeouts: [], hardTimeouts: [], halted: true },
+    semanticOk: false,
+  };
+  let usedModel = model || CONFIG.model;
+  let usedFinish = '';
+  let prevRaw = null;
+  let stalled = false;
+  const ignore = new Set();   // 被仲裁判定为「用例错、机器对」的输入
+  const corrections = [];
+  let arbitrated = false;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let r;
+    try {
+      r = await callChat(messages, {
+        model, deep, signal: opts.signal,
+        temperature: attempt === 0 ? 0.2 : 0.1,
+        maxTokens: deep ? CONFIG.deepMaxTokens : CONFIG.maxTokens,
+      });
+    } catch (e) {
+      if (e.truncated && attempt < maxAttempts - 1) {
+        trace.push({ attempt, stage: 'truncated', ok: false, detail: e.message });
+        messages.push({ role: 'user', content: P.TRUNCATED_REPAIR_PROMPT(e.partial || '') });
+        continue;
+      }
+      throw e;
+    }
+    raw = r.content;
+    accUsage(r.usage);
+    usedModel = r.model || usedModel;
+    usedFinish = r.finish || usedFinish;
+
+    if (prevRaw !== null && raw.trim() === prevRaw.trim() && attempt > 0) {
+      trace.push({ attempt, stage: 'stalled', ok: false, detail: '模型输出了与上一轮完全相同的内容，停止重试' });
+      stalled = true;
+      break;
+    }
+    prevRaw = raw;
+
+    // 解析
+    let parsed;
+    try {
+      parsed = TM.extractJson(raw);
+    } catch (e) {
+      const truncated = r.finish === 'length';
+      trace.push({ attempt, stage: 'parse', ok: false, detail: e.message, truncated });
+      if (attempt === maxAttempts - 1) {
+        const err = new Error('模型连续 ' + maxAttempts + ' 次未能返回合法 JSON：' + e.message);
+        err.statusCode = 502;
+        throw err;
+      }
+      messages.push({ role: 'assistant', content: raw, reasoning_content: r.reasoning || '' });
+      messages.push({
+        role: 'user',
+        content: truncated
+          ? P.TRUNCATED_REPAIR_PROMPT(raw)
+          : `你的回复不是合法 JSON（${e.message}）。请只输出 JSON 对象本身，不要代码块和解释。`,
+      });
+      continue;
+    }
+
+    // 结构校验
+    tm = TM.normalize(parsed);
+    report = TM.validate(tm);
+    trace.push({ attempt, stage: 'validate', ok: report.ok, errors: report.errors });
+
+    let feedback = null;
+    if (!report.ok) {
+      feedback = P.REPAIR_PROMPT(raw, report.errors);
+    } else {
+      checks = P.verifyAll(tm, spec, ignore, SCAN_CFG());
+      trace.push({
+        attempt, stage: 'verify', ok: checks.verification.failed.length === 0,
+        checked: checks.verification.total, failed: checks.verification.failed.length,
+        timeouts: checks.scan.hardTimeouts.length,
+      });
+
+      // 有分歧时先仲裁一次：分辨「规格用例错」还是「机器错」
+      if (!checks.semanticOk && !arbitrated && checks.verification.failed.length && opts.arbitrate !== false) {
+        arbitrated = true;
+        try {
+          const arb = await arbitrate(description, spec, checks.verification, opts);
+          if (arb) {
+            accUsage(arb.usage);
+            for (const j of arb.judgments) {
+              if (String(j.side).toLowerCase() === 'machine') {
+                const key = P.str(j.input);
+                ignore.add(key);
+                corrections.push({ input: key, why: P.str(j.why) });
+              }
+            }
+            trace.push({ stage: 'arbitrate', ok: true, dropped: corrections.length, judgments: arb.judgments.map((j) => `${j.input}:${j.side}`) });
+            if (corrections.length) {
+              checks = P.verifyAll(tm, spec, ignore, SCAN_CFG());
+              trace.push({
+                attempt, stage: 'verify', ok: checks.verification.failed.length === 0,
+                checked: checks.verification.total, failed: checks.verification.failed.length,
+                timeouts: checks.scan.hardTimeouts.length, afterArbitration: true,
+              });
+            }
+          }
+        } catch (e) {
+          trace.push({ stage: 'arbitrate', ok: false, error: e.message });
+        }
+      }
+
+      if (checks.semanticOk) break;
+      feedback = P.SEMANTIC_REPAIR_PROMPT(raw, spec, checks.verification, P.hardTimeoutText(checks.scan));
+    }
+
+    if (attempt === maxAttempts - 1) break;
+    messages.push({ role: 'assistant', content: raw, reasoning_content: r.reasoning || '' });
+    messages.push({ role: 'user', content: feedback });
+  }
+
+  // ⑦ 可选审计（发现分歧时再做一轮带反例的回修）
+  let audit = null;
+  if (opts.audit && tm && report.ok) {
+    const fullScan = checks.scanFull || checks.scan;
+    try {
+      audit = await auditMachine(description, spec, tm, fullScan, opts);
+      accUsage(audit.usage);
+      trace.push({ stage: 'audit', ok: !audit.mismatches.length, mismatches: audit.mismatches.length });
+
+      if (audit.mismatches.length && !stalled) {
+        const extra = audit.mismatches
+          .map((m, i) => `${i + 1}. 输入 "${m.input === '' ? 'ε' : m.input}" 应为 ${m.should_be}${m.why ? '（' + m.why + '）' : ''}`)
+          .join('\n');
+        messages.push({ role: 'assistant', content: raw, reasoning_content: '' });
+        messages.push({ role: 'user', content: P.SEMANTIC_REPAIR_PROMPT(raw, spec, checks.verification, extra) });
+        try {
+          const r2 = await callChat(messages, {
+            model, deep, signal: opts.signal, temperature: 0.1,
+            maxTokens: deep ? CONFIG.deepMaxTokens : CONFIG.maxTokens,
+          });
+          accUsage(r2.usage);
+          usedModel = r2.model || usedModel;
+          const tm2 = TM.normalize(TM.extractJson(r2.content));
+          const rep2 = TM.validate(tm2);
+          if (rep2.ok) {
+            const ch2 = P.verifyAll(tm2, spec, ignore, SCAN_CFG());
+            trace.push({
+              attempt: maxAttempts, stage: 'verify', ok: ch2.verification.failed.length === 0,
+              checked: ch2.verification.total, failed: ch2.verification.failed.length,
+              timeouts: ch2.scan.hardTimeouts.length,
+            });
+            const better = ch2.verification.failed.length <= checks.verification.failed.length
+              && ch2.scan.hardTimeouts.length <= checks.scan.hardTimeouts.length;
+            if (better) {
+              tm = tm2;
+              raw = r2.content;
+              report = rep2;
+              checks = ch2;
+              audit.resolved = true;
+              trace.push({ stage: 'audit-repair', ok: true });
+            } else {
+              trace.push({ stage: 'audit-repair', ok: false, detail: '回修结果不比原机更好，保留原机' });
+            }
+          }
+        } catch (e) {
+          trace.push({ stage: 'audit-repair', ok: false, error: e.message });
+        }
+      }
+    } catch (e) {
+      trace.push({ stage: 'audit', ok: false, error: e.message });
+    }
+  }
+
+  const auditOk = !audit || audit.mismatches.length === 0 || audit.resolved === true;
+
+  return {
+    tm,
+    raw,
+    spec,
+    specCorrections: corrections,
+    skills: { picked: sk.ids, titles: sk.titles, references: sk.references.map((r) => r.name), matched: sk.matched },
+    validation: report,
+    verification: checks.verification,
+    selfCheck: checks.selfCheck,
+    scan: checks.scan,
+    audit,
+    semanticOk: report.ok && checks.semanticOk && auditOk,
+    trace,
+    usage,
+    model: usedModel,
+    deep,
+    finish: usedFinish,
+    stalled,
+    elapsedMs: Date.now() - t0,
+  };
+}
+
+  return {
+    convert, extractSpec, arbitrate, auditMachine,
+    buildTests: P.buildTests, verifyAll: P.verifyAll, normalizeSpec: P.normalizeSpec,
+    buildSystem: (sk, spec, extra) => P.buildSystem(sk, spec, skills, extra),
+    BASE_RULES: P.BASE_RULES, SPEC_PROMPT: P.SPEC_PROMPT,
+  };
+});
+
+</script>
+<script>
+/* ===== 网页后端（TM_BACKEND + API Key） ===== */
+/*
+ * backend.js — 网页版「后端」：把 app.js 需要的三个接口映射到浏览器内实现
+ *
+ *   TM_BACKEND.health()            读取本机保存的配置
+ *   TM_BACKEND.convert(payload)    调用 TM_PIPELINE（直连 DeepSeek）
+ *   TM_BACKEND.verify(payload)     纯本地模拟器验证
+ *
+ * 同时负责 API Key 表单：保存到 localStorage、显示/隐藏、刷新状态徽标。
+ */
+(function (root) {
+  'use strict';
+
+  const LS = { key: 'nl2tm.apiKey', base: 'nl2tm.baseUrl', model: 'nl2tm.model' };
+  const $ = (id) => document.getElementById(id);
+
+  // 部分浏览器在 file:// 下会禁用 localStorage，这里做安全封装
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (_) { /* ignore */ } };
+
+  function readKey() {
+    const i = $('api-key');
+    const v = ((i && i.value) || '').trim();
+    return v || lsGet(LS.key) || '';
+  }
+  function readBase() {
+    const i = $('api-base');
+    const v = ((i && i.value) || '').trim() || lsGet(LS.base) || 'https://api.deepseek.com';
+    return v.replace(/\/+$/, '');
+  }
+  function readModel() {
+    const s = $('model-select');
+    return (s && s.value) || lsGet(LS.model) || 'deepseek-flash';
+  }
+
+  /** 把表单里的配置同步进运行时（每次编译前调用） */
+  function applyRuntime() {
+    const C = root.TM_WEB_CONFIG;
+    C.apiKey = readKey();
+    C.baseUrl = readBase();
+    C.model = readModel();
+    C.specModel = C.model;
+  }
+
+  root.TM_BACKEND = {
+    async health() {
+      return {
+        configured: !!readKey(),
+        model: readModel(),
+        baseUrl: readBase(),
+        scanMaxLen: root.TM_WEB_CONFIG.scanMaxLen,
+        skills: root.TM_SKILLS_LIB.listSkills().map((s) => s.id),
+      };
+    },
+
+    async convert(payload, opts = {}) {
+      applyRuntime();
+      if (!root.TM_WEB_CONFIG.apiKey) {
+        throw new Error('请先填写 DeepSeek API Key（只保存在本机浏览器）');
+      }
+      return root.TM_PIPELINE.convert(payload.description, {
+        model: payload.model,
+        deep: payload.deep,
+        specFirst: payload.specFirst,
+        audit: payload.audit,
+        signal: opts.signal,
+      });
+    },
+
+    async verify(payload) {
+      const tm = root.TM.normalize(payload.tm || {});
+      const validation = root.TM.validate(tm);
+      const tests = Array.isArray(payload.tests) ? payload.tests : (tm.examples || []);
+      const verification = root.TM.verify(tm, tests, 20000);
+      let scan = null;
+      if (validation.ok) {
+        scan = root.TM.scanBounded(tm, {
+          alphabet: tm.inputAlphabet,
+          maxLen: root.TM_WEB_CONFIG.scanMaxLen,
+          maxSteps: root.TM_WEB_CONFIG.scanMaxSteps,
+          maxCases: 800,
+        });
+      }
+      return { ok: true, validation, verification, scan, tm };
+    },
+  };
+
+  /* ---------------- API Key 表单 ---------------- */
+
+  function flashKeyStatus(text, ok) {
+    const el = $('key-status');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'hint' + (ok ? ' ok' : '');
+    setTimeout(() => {
+      el.textContent = 'Key 只保存在本机浏览器 localStorage，直接发往 DeepSeek，不经过第三方服务器。';
+      el.className = 'hint';
+    }, 2600);
+  }
+
+  function initForm() {
+    const keyEl = $('api-key');
+    if (!keyEl) return;
+    const baseEl = $('api-base');
+    const modelEl = $('model-select');
+
+    const savedKey = lsGet(LS.key);
+    if (savedKey) keyEl.value = savedKey;
+    if (baseEl) baseEl.value = lsGet(LS.base) || 'https://api.deepseek.com';
+    const savedModel = lsGet(LS.model);
+    if (modelEl && savedModel) modelEl.value = savedModel;
+
+    const save = () => {
+      lsSet(LS.key, (keyEl.value || '').trim());
+      if (baseEl) lsSet(LS.base, (baseEl.value || '').trim());
+      if (modelEl && modelEl.value) lsSet(LS.model, modelEl.value);
+      if (root.NL2TM_APP && root.NL2TM_APP.refreshHealth) root.NL2TM_APP.refreshHealth();
+      flashKeyStatus('已保存到本机浏览器 ✓', true);
+    };
+
+    const saveBtn = $('key-save');
+    if (saveBtn) saveBtn.onclick = save;
+    const eye = $('key-eye');
+    if (eye) {
+      eye.onclick = () => {
+        keyEl.type = keyEl.type === 'password' ? 'text' : 'password';
+        eye.textContent = keyEl.type === 'password' ? '显示' : '隐藏';
+      };
+    }
+    keyEl.addEventListener('change', save);
+    keyEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+    if (baseEl) baseEl.addEventListener('change', save);
+    if (modelEl) {
+      modelEl.addEventListener('change', () => {
+        if (modelEl.value) lsSet(LS.model, modelEl.value);
+        if (root.NL2TM_APP && root.NL2TM_APP.refreshHealth) root.NL2TM_APP.refreshHealth();
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initForm);
+  else initForm();
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+/* ===== 界面逻辑 ===== */
+/* app.js — NL2TM 前端逻辑：编译、渲染、模拟 */
+'use strict';
+
+const $ = (sel) => document.querySelector(sel);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+const PRESETS = [
+  { label: '0/1 个数相等', text: '读入一串由 0 和 1 组成的字符串，如果其中 0 的个数和 1 的个数相等就接受，否则拒绝。' },
+  { label: '一元加法 a+b', text: '计算两个用一元编码表示的非负整数之和：输入形如 "111+11"（3+2），要求在带上输出用一元表示的和 "11111"，并接受。' },
+  { label: '二进制加一', text: '把输入的一串二进制数加 1。例如输入 1011，输出 1100。要求原地修改纸带上的数字，最后接受。' },
+  { label: '偶数个 1', text: '读入一串 0 和 1，如果 1 的个数是偶数则接受，否则拒绝。' },
+  { label: '括号匹配', text: '判断输入串中的括号是否匹配：输入只含 "(" 和 ")"，匹配则接受，否则拒绝。' },
+  { label: '回文串判定', text: '判断输入串是否为回文（正读反读相同），输入只含 0 和 1，是则接受，否则拒绝。' },
+  { label: '把 a 全换成 b', text: '把输入串中所有的字符 a 替换成 b，其他字符保持不变，处理完成后接受。' },
+  { label: '复制输入串', text: '在输入串后面加上一个 # 分隔符，再把原输入串完整复制一遍。例如 ab 变成 ab#ab，最后接受。' },
+  { label: '2 的幂判定', text: '判断输入的一元数（n 个 1，n>=1）是否为 2 的幂，是则接受，否则拒绝。' },
+];
+
+const ui = {
+  nl: $('#nl-input'),
+  model: $('#model-select'),
+  convert: $('#convert-btn'),
+  cancel: $('#cancel-btn'),
+  status: $('#convert-status'),
+  chips: $('#preset-chips'),
+  trace: $('#trace'),
+  health: $('#health-badge'),
+  modelBadge: $('#model-badge'),
+  json: $('#json-view'),
+  tape: $('#tape'),
+  tapeWrap: document.querySelector('.tape-wrap'),
+  marker: $('#tape-marker'),
+  tapeInput: $('#tape-input'),
+  log: $('#log'),
+};
+
+const app = {
+  tm: null,
+  machine: null,
+  timer: null,
+  running: false,
+  busy: false,
+  abort: null,
+  tiToEdge: new Map(),
+  activeEdge: null,
+  activeLabel: null,
+};
+
+// 有界穷举的输入长度上限（由 /api/health 返回后覆盖）
+let CONFIG_SCAN_LEN = 4;
+
+/* ------------------------------------------------------------------ */
+/* 后端适配                                                            */
+/* 默认走本地 Node 服务；静态网页版会预先注入 window.TM_BACKEND 直连 API */
+/* ------------------------------------------------------------------ */
+
+const backend = (typeof window !== 'undefined' && window.TM_BACKEND) ? window.TM_BACKEND : {
+  async health() {
+    return fetch('/api/health').then((x) => x.json());
+  },
+  async convert(payload, opts = {}) {
+    const res = await fetch('/api/convert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: opts.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  },
+  async verify(payload) {
+    const res = await fetch('/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* 启动                                                                */
+/* ------------------------------------------------------------------ */
+
+init();
+
+function init() {
+  PRESETS.forEach((p) => {
+    const c = el('button', 'chip', p.label);
+    c.title = p.text;
+    c.onclick = () => { ui.nl.value = p.text; ui.nl.focus(); };
+    ui.chips.appendChild(c);
+  });
+
+  ui.convert.onclick = doConvert;
+  ui.cancel.onclick = () => { if (app.abort) app.abort.abort(); };
+  ui.nl.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') doConvert();
+  });
+
+  document.querySelectorAll('.tab').forEach((t) => {
+    t.onclick = () => {
+      document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+      document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === 'pane-' + t.dataset.tab));
+    };
+  });
+
+  $('#btn-run').onclick = startRun;
+  $('#btn-pause').onclick = pauseRun;
+  $('#btn-step').onclick = () => { pauseRun(); stepOnce(); };
+  $('#btn-undo').onclick = () => { pauseRun(); undoOnce(); };
+  $('#btn-fast').onclick = () => { pauseRun(); runToHalt(); };
+  $('#btn-reset').onclick = () => { pauseRun(); loadTape(currentInput()); };
+  $('#load-btn').onclick = () => { pauseRun(); loadTape(currentInput()); };
+  ui.tapeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { pauseRun(); loadTape(currentInput()); } });
+
+  $('#copy-json').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(ui.json.value);
+      flashStatus('已复制 JSON 到剪贴板', 'ok');
+    } catch (_) { flashStatus('复制失败，请手动选择复制', 'err'); }
+  };
+  $('#apply-json').onclick = async () => {
+    try {
+      const tm = TM.normalize(JSON.parse(ui.json.value));
+      const rep = TM.validate(tm);
+      let meta = { validation: rep, selfCheck: null, verification: null, scan: null, spec: null, skills: null };
+      if (rep.ok) {
+        try {
+          const d = await backend.verify({ tm });
+          if (d && d.ok) {
+            meta.verification = d.verification;
+            meta.scan = d.scan ? {
+              tested: d.scan.tested, counts: d.scan.counts, timeouts: d.scan.timeouts,
+              hardTimeouts: (d.scan.timeouts || []).filter((t) => String(t.input).length <= 3), halted: d.scan.halted,
+            } : null;
+            meta.selfCheck = { checked: d.verification.total, problems: d.verification.failed };
+          }
+        } catch (_) { /* 服务不可用时只做结构校验 */ }
+      }
+      installMachine(tm, rep, meta);
+      if (!rep.ok) flashStatus('已载入，但存在 ' + rep.errors.length + ' 个错误', 'err');
+      else if (meta.verification && meta.verification.failed.length) flashStatus('已载入，独立验证有 ' + meta.verification.failed.length + ' 项未通过', 'err');
+      else flashStatus('已从 JSON 载入并重新验证', 'ok');
+    } catch (e) {
+      flashStatus('JSON 解析失败：' + e.message, 'err');
+    }
+  };
+
+  checkHealth();
+}
+
+async function checkHealth() {
+  try {
+    const r = await backend.health();
+    if (r.configured) {
+      ui.health.textContent = '● API 已连接';
+      ui.health.className = 'badge ok';
+    } else {
+      ui.health.textContent = '● 未配置 API Key';
+      ui.health.className = 'badge err';
+    }
+    ui.modelBadge.textContent = r.model + ' @ ' + r.baseUrl.replace(/^https?:\/\//, '');
+    if (typeof r.scanMaxLen === 'number') CONFIG_SCAN_LEN = r.scanMaxLen;
+    if (ui.model.value === '') ui.modelBadge.textContent += '（默认）';
+  } catch (_) {
+    ui.health.textContent = '● 服务不可用';
+    ui.health.className = 'badge err';
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 编译                                                                */
+/* ------------------------------------------------------------------ */
+
+async function doConvert() {
+  if (app.busy) return;
+  const description = ui.nl.value.trim();
+  if (!description) { flashStatus('请先填写自然语言描述', 'err'); ui.nl.focus(); return; }
+
+  app.busy = true;
+  app.abort = new AbortController();
+  ui.convert.disabled = true;
+  ui.convert.querySelector('.btn-label').textContent = '编译中…';
+  ui.convert.querySelector('.spinner').hidden = false;
+  ui.cancel.hidden = false;
+  ui.status.className = 'status-line';
+  ui.status.textContent = '正在调用模型生成图灵机…（v4-pro + 深度思考可能要几分钟，可随时取消）';
+  ui.trace.textContent = '';
+
+  try {
+    const data = await backend.convert({
+      description,
+      model: ui.model.value || undefined,
+      deep: $('#deep-toggle').checked,
+      specFirst: $('#spec-toggle').checked,
+      audit: $('#audit-toggle').checked,
+    }, { signal: app.abort.signal });
+
+    installMachine(data.tm, data.validation, data);
+    const v = data.validation;
+    const ver = data.verification || { passed: 0, total: 0, failed: [] };
+    if (v.ok && data.semanticOk) {
+      flashStatus(`编译成功（${data.model}${data.deep ? ' · 深度思考' : ''}，${(data.elapsedMs / 1000).toFixed(1)}s）· 独立验证 ${ver.passed}/${ver.total} 通过`, 'ok');
+    } else if (v.ok) {
+      flashStatus(`结构合法，但独立验证有 ${ver.failed.length} 项未通过，可查看「规格与验证」并手动修正 JSON`, 'err');
+    } else {
+      flashStatus(`已生成，但仍有 ${v.errors.length} 个校验错误，可手动编辑 JSON 修正`, 'err');
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      flashStatus('已取消编译', 'err');
+      traceLine('✗ 已取消（已通知后端中止上游请求）', 't-err');
+    } else {
+      flashStatus('编译失败：' + e.message, 'err');
+      traceLine('✗ ' + e.message, 't-err');
+    }
+  } finally {
+    app.busy = false;
+    app.abort = null;
+    ui.cancel.hidden = true;
+    ui.convert.disabled = false;
+    ui.convert.querySelector('.btn-label').textContent = '编译为图灵机';
+    ui.convert.querySelector('.spinner').hidden = true;
+  }
+}
+
+function traceLine(text, cls) {
+  const span = el('div', cls || '', text);
+  ui.trace.appendChild(span);
+  ui.trace.scrollTop = ui.trace.scrollHeight;
+}
+
+function flashStatus(text, kind) {
+  ui.status.className = 'status-line' + (kind ? ' ' + kind : '');
+  ui.status.textContent = text;
+}
+
+/** 装载一台新机器并刷新全部视图 */
+function installMachine(tm, validation, meta) {
+  pauseRun();
+  app.tm = tm;
+  app.machine = null;
+  ui.json.value = JSON.stringify(tm, null, 2);
+  renderOverview(tm, validation, meta && meta.selfCheck);
+  renderSpec(meta);
+  renderTable(tm);
+  renderDiagram(tm);
+  traceLine(`✓ ${tm.name || '图灵机'}：${tm.states.length} 状态 / ${tm.transitions.length} 条转移`, 't-ok');
+  if (meta && meta.skills && meta.skills.picked && meta.skills.picked.length) {
+    traceLine(`  注入技能：${meta.skills.picked.join('、')}`, '');
+    if (meta.skills.references && meta.skills.references.length) {
+      traceLine(`  参考机：${meta.skills.references.join('、')}`, '');
+    }
+  }
+  if (meta && meta.trace) {
+    meta.trace.forEach((t) => {
+      if (t.stage === 'validate' && !t.ok) traceLine(`  第 ${t.attempt + 1} 轮：结构有 ${t.errors.length} 个错误，自动修复中…`, 't-warn');
+      if (t.stage === 'verify' && !t.ok) traceLine(`  第 ${t.attempt + 1} 轮：独立验证失败 ${t.failed} 项，自动修复中…`, 't-warn');
+      if (t.stage === 'parse') traceLine(`  第 ${t.attempt + 1} 轮：JSON 解析失败，重试中…`, 't-warn');
+      if (t.stage === 'spec' && t.ok) traceLine(`  规格已抽取：${t.tests} 条独立测试`, '');
+      if (t.stage === 'audit') traceLine(`  审计：${t.ok ? '未发现额外问题' : (t.mismatches || 0) + ' 处可疑'}`, t.ok ? '' : 't-warn');
+    });
+  }
+  if (meta && meta.verification) {
+    const v = meta.verification;
+    traceLine(`  独立验证 ${v.passed}/${v.total} 通过`, v.failed.length ? 't-err' : 't-ok');
+  }
+  if (meta && meta.scan) {
+    const s = meta.scan;
+    traceLine(`  有界穷举 ${s.tested} 例：accept ${s.counts.accept} / reject ${s.counts.reject} / timeout ${s.counts.timeout}`, s.counts.timeout ? 't-warn' : '');
+  }
+  if (validation && validation.warnings && validation.warnings.length) {
+    traceLine(`  ${validation.warnings.length} 条警告`, 't-warn');
+  }
+  if (meta && meta.usage) {
+    traceLine(`  tokens: ${meta.usage.prompt_tokens || 0} + ${meta.usage.completion_tokens || 0}`, '');
+  }
+
+  // 自动载入第一个示例
+  const first = (tm.examples && tm.examples[0] && tm.examples[0].input) || '';
+  ui.tapeInput.value = first;
+  loadTape(first);
+  switchTab('overview');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
+  document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === 'pane-' + name));
+}
+
+/* ------------------------------------------------------------------ */
+/* 概览渲染                                                            */
+/* ------------------------------------------------------------------ */
+
+function renderOverview(tm, validation, selfCheck) {
+  $('#overview-empty').hidden = true;
+  $('#overview-content').hidden = false;
+
+  $('#tm-name').textContent = tm.name || '（未命名图灵机）';
+  $('#tm-summary').textContent = tm.summary || '';
+  $('#tm-encoding').textContent = tm.encoding || '—';
+  $('#tm-input-alpha').innerHTML = symList(tm.inputAlphabet);
+  $('#tm-tape-alpha').innerHTML = symList(tm.tapeAlphabet);
+  $('#tm-blank').innerHTML = symHtml(tm.blank);
+  $('#tm-states').innerHTML = (tm.states || []).map((s) => {
+    let cls = 'sym';
+    if (s === tm.startState) cls += ' start';
+    if (s === tm.acceptState) cls += ' accept';
+    if (s === tm.rejectState) cls += ' reject';
+    return `<span class="${cls}">${esc(s)}</span>`;
+  }).join('');
+  $('#tm-roles').innerHTML =
+    symHtml(tm.startState, 'start') + ' → ' + symHtml(tm.acceptState, 'accept') + ' / ' + symHtml(tm.rejectState, 'reject');
+
+  const aw = $('#tm-assumptions-wrap');
+  if (tm.assumptions && tm.assumptions.length) {
+    aw.hidden = false;
+    $('#tm-assumptions').innerHTML = tm.assumptions.map((a) => `<li>${esc(a)}</li>`).join('');
+  } else aw.hidden = true;
+
+  const ew = $('#tm-examples-wrap');
+  const box = $('#tm-examples');
+  box.innerHTML = '';
+  if (tm.examples && tm.examples.length) {
+    ew.hidden = false;
+    tm.examples.forEach((ex) => {
+      const c = el('button', 'chip');
+      c.innerHTML = `<span class="mono">${esc(ex.input === '' ? 'ε' : ex.input)}</span>
+        <span class="chip-sub">${esc(ex.expected || '?')}${ex.note ? ' · ' + esc(ex.note) : ''}</span>`;
+      c.onclick = () => { pauseRun(); ui.tapeInput.value = ex.input; loadTape(ex.input); document.getElementById('panel-sim')?.scrollIntoView?.({ behavior: 'smooth' }); };
+      box.appendChild(c);
+    });
+  } else ew.hidden = true;
+
+  const alerts = $('#tm-alerts');
+  alerts.innerHTML = '';
+  const mk = (kind, text) => alerts.appendChild(el('div', 'alert ' + kind, text));
+  if (validation) {
+    validation.errors.forEach((e) => mk('err', '✗ ' + e));
+    validation.warnings.forEach((w) => mk('warn', '⚠ ' + w));
+  }
+  if (selfCheck) {
+    if (selfCheck.problems.length) {
+      selfCheck.problems.forEach((p) => mk('err', `✗ 自检反例：输入 "${p.input || 'ε'}" 期望 ${p.want}，实际 ${p.got}（${p.steps} 步${p.timeout ? '，疑似死循环' : ''}）`));
+    } else if (selfCheck.checked > 0) {
+      mk('ok', `✓ 语义自检通过：${selfCheck.checked} 个示例全部与声明一致`);
+    }
+  }
+  if (validation && validation.ok && !validation.warnings.length) {
+    mk('ok', '✓ 结构校验通过：确定性转移、字母表与状态引用均合法');
+  }
+}
+
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const symHtml = (s, cls) => `<span class="sym ${cls || ''}">${esc(s === '' ? 'ε' : s)}</span>`;
+const symList = (arr) => (arr || []).map((s) => symHtml(s)).join('') || '<span class="hint">（空）</span>';
+
+/* ------------------------------------------------------------------ */
+/* 规格与验证渲染                                                       */
+/* ------------------------------------------------------------------ */
+
+function renderSpec(meta) {
+  const empty = $('#spec-empty');
+  const content = $('#spec-content');
+  const hasSpec = Boolean(meta && meta.spec);
+  const hasVer = Boolean(meta && meta.verification);
+  const hasSkills = Boolean(meta && meta.skills && meta.skills.picked && meta.skills.picked.length);
+  const hasCorr = Boolean(meta && meta.specCorrections && meta.specCorrections.length);
+
+  if (!hasSpec && !hasVer && !hasSkills && !hasCorr) {
+    empty.hidden = false;
+    content.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  content.hidden = false;
+
+  // 命中的技能
+  const skBox = $('#spec-skills');
+  skBox.innerHTML = '';
+  if (hasSkills) {
+    meta.skills.picked.forEach((id, i) => {
+      const label = meta.skills.titles && meta.skills.titles[i] ? meta.skills.titles[i] : id;
+      const c = el('span', 'chip', label);
+      const m = meta.skills.matched && meta.skills.matched[id];
+      c.title = m && m.hits && m.hits.length ? '命中关键词：' + m.hits.join('、') : '';
+      skBox.appendChild(c);
+    });
+    if (meta.skills.references && meta.skills.references.length) {
+      const c = el('span', 'chip chip-ref', '参考机：' + meta.skills.references.join('、'));
+      skBox.appendChild(c);
+    }
+  } else {
+    skBox.innerHTML = '<span class="hint">未命中专项技能（只注入通用法则）</span>';
+  }
+
+  // 规格字段
+  const kv = $('#spec-kv');
+  kv.innerHTML = '';
+  if (hasSpec) {
+    const s = meta.spec;
+    const row = (k, v) => {
+      const r = el('div', 'kv-row');
+      r.innerHTML = `<span class="kv-key">${esc(k)}</span><span class="kv-val">${v}</span>`;
+      kv.appendChild(r);
+    };
+    row('任务类型', s.task_type === 'transducer' ? '函数计算（要在带上留下输出）' : '语言识别（accept / reject）');
+    if (s.summary) row('摘要', esc(s.summary));
+    if (s.encoding) row('编码', esc(s.encoding));
+    if (s.input_alphabet && s.input_alphabet.length) row('输入字母表 Σ', symList(s.input_alphabet));
+    if (s.accept_condition) row('接受条件', esc(s.accept_condition));
+    if (s.reject_condition) row('拒绝条件', esc(s.reject_condition));
+    if (s.output_rule) row('输出要求', esc(s.output_rule));
+  } else {
+    kv.innerHTML = '<span class="hint">未启用规格抽取</span>';
+  }
+
+  const aw = $('#spec-assumptions-wrap');
+  if (hasSpec && meta.spec.assumptions && meta.spec.assumptions.length) {
+    aw.hidden = false;
+    $('#spec-assumptions').innerHTML = meta.spec.assumptions.map((a) => `<li>${esc(a)}</li>`).join('');
+  } else aw.hidden = true;
+
+  // 规格仲裁结果
+  const cw = $('#spec-corrections-wrap');
+  if (meta && meta.specCorrections && meta.specCorrections.length) {
+    cw.hidden = false;
+    $('#spec-corrections').innerHTML = meta.specCorrections
+      .map((c) => `<div class="alert warn">输入 "${esc(c.input === '' ? 'ε' : c.input)}"：用例期望有误，模拟器行为正确。${esc(c.why || '')}</div>`)
+      .join('');
+  } else cw.hidden = true;
+
+  // 独立验证表
+  const wrap = $('#verify-wrap');
+  const body = $('#verify-body');
+  const vempty = $('#verify-empty');
+  body.innerHTML = '';
+  if (hasVer && meta.verification.results && meta.verification.results.length) {
+    wrap.hidden = false;
+    vempty.textContent = '';
+    const res = meta.verification.results.slice().sort((a, b) => (a.ok === b.ok ? 0 : a.ok ? 1 : -1));
+    res.forEach((r) => {
+      const tr = el('tr');
+      const cls = r.ok ? 'v-ok' : 'v-bad';
+      tr.innerHTML =
+        `<td>${r.source === 'spec' ? '规格' : '自述'}</td>` +
+        `<td class="mono">${esc(r.input === '' ? 'ε' : r.input)}</td>` +
+        `<td class="mono">${esc(r.want)}</td>` +
+        `<td class="mono ${r.got === r.want ? 'ok' : 'bad'}">${esc(r.got)}</td>` +
+        `<td class="mono">${r.wantOutput == null ? '—' : esc(r.wantOutput === '' ? '（空）' : r.wantOutput)}</td>` +
+        `<td class="mono ${r.wantOutput != null && r.wantOutput !== r.gotOutput ? 'bad' : ''}">${esc(r.gotOutput === '' ? '（空）' : r.gotOutput)}</td>` +
+        `<td class="mono">${r.steps}${r.timeout ? ' ⏱' : ''}</td>` +
+        `<td class="${cls}">${r.ok ? '✓' : '✗'}</td>`;
+      body.appendChild(tr);
+    });
+  } else {
+    wrap.hidden = true;
+    vempty.textContent = hasVer ? '没有可验证的用例（既没有规格测试，也没有自述示例）。' : '尚未验证。';
+  }
+
+  // 有界穷举
+  const scanBox = $('#scan-summary');
+  if (meta && meta.scan) {
+    const s = meta.scan;
+    const cls = s.timeouts && s.timeouts.length ? 'alert warn' : 'alert ok';
+    const hard = (s.hardTimeouts || []).length;
+    scanBox.innerHTML =
+      `<div class="${cls}">在 Σ 上长度 ≤ ${CONFIG_SCAN_LEN} 的输入共验证 ${s.tested} 例：` +
+      `接受 ${s.counts.accept}，拒绝 ${s.counts.reject}，超时 ${s.counts.timeout}` +
+      `${hard ? `（其中 ${hard} 个短输入疑似死循环 ⚠）` : ''}</div>`;
+    if (s.timeouts && s.timeouts.length) {
+      const list = s.timeouts.slice(0, 8).map((t) => `"${t.input === '' ? 'ε' : t.input}"(${t.steps}步)`).join('、');
+      scanBox.innerHTML += `<div class="hint" style="margin-top:6px">超时输入：${esc(list)}</div>`;
+    }
+  } else {
+    scanBox.innerHTML = '<span class="hint">未做穷举（结构校验未通过时跳过）。</span>';
+  }
+
+  // 审计
+  const audWrap = $('#audit-wrap');
+  if (meta && meta.audit) {
+    audWrap.hidden = false;
+    const a = meta.audit;
+    const box = $('#audit-summary');
+    if (!a.mismatches.length) box.innerHTML = '<div class="alert ok">模型复核小输入判定结果：未发现额外问题 ✓</div>';
+    else {
+      box.innerHTML = a.mismatches.map((m) => `<div class="alert err">✗ 输入 "${esc(m.input === '' ? 'ε' : m.input)}" 应为 ${esc(m.should_be)}：${esc(m.why || '')}</div>`).join('');
+    }
+  } else audWrap.hidden = true;
+}
+
+/* ------------------------------------------------------------------ */
+/* 转移表渲染                                                          */
+/* ------------------------------------------------------------------ */
+
+function renderTable(tm) {
+  const body = $('#table-body');
+  body.innerHTML = '';
+  const ts = tm.transitions || [];
+  $('#table-empty').hidden = ts.length > 0;
+  $('#table-wrap').hidden = ts.length === 0;
+  ts.forEach((t, i) => {
+    const tr = el('tr');
+    tr.dataset.ti = String(i);
+    tr.innerHTML =
+      `<td>${i + 1}</td>` +
+      `<td style="color:#8fc0ff">${esc(t.state)}</td>` +
+      `<td>${esc(t.read)}</td>` +
+      `<td>${esc(t.write)}</td>` +
+      `<td><span class="mv mv-${esc(t.move)}">${esc(t.move)}</span></td>` +
+      `<td style="color:#8fe6cd">${esc(t.next)}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function highlightTransition(ti) {
+  document.querySelectorAll('.ttable tr.active').forEach((r) => r.classList.remove('active'));
+  if (ti == null) return;
+  const row = document.querySelector(`.ttable tr[data-ti="${ti}"]`);
+  if (row) {
+    row.classList.add('active');
+    if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 状态图渲染                                                          */
+/* ------------------------------------------------------------------ */
+
+function renderDiagram(tm) {
+  const svg = $('#diagram');
+  const wrap = $('#diagram-wrap');
+  const states = tm.states || [];
+  if (!states.length) {
+    $('#diagram-empty').hidden = false;
+    wrap.hidden = true;
+    return;
+  }
+  $('#diagram-empty').hidden = true;
+  wrap.hidden = false;
+
+  const n = states.length;
+  const R0 = Math.max(120, Math.min(230, 60 + n * 16));
+  const W = Math.round(R0 * 2 + 220);
+  const H = Math.round(R0 * 2 + 180);
+  const cx = W / 2, cy = H / 2;
+  const nr = 26;
+
+  const pos = new Map();
+  states.forEach((s, i) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    pos.set(s, { x: cx + R0 * Math.cos(a), y: cy + R0 * Math.sin(a) });
+  });
+
+  // 分组边：from -> to
+  const groups = new Map();
+  (tm.transitions || []).forEach((t, i) => {
+    const key = `${t.state}\u0000${t.next}`;
+    if (!groups.has(key)) groups.set(key, { from: t.state, to: t.next, items: [] });
+    groups.get(key).items.push({ t, i });
+  });
+
+  const parts = [];
+  parts.push(`<defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#43557d"/>
+    </marker>
+    <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4da3ff"/>
+    </marker>
+  </defs>`);
+
+  const shorten = (from, to, r) => {
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const d = Math.hypot(dx, dy) || 1;
+    return { x: from.x + (dx / d) * r, y: from.y + (dy / d) * r };
+  };
+
+  app.tiToEdge = new Map();
+  let edgeSeq = 0;
+
+  for (const g of groups.values()) {
+    const items = g.items;
+    const label = items.map(({ t }) => `${t.read}→${t.write},${t.move}`).join('\n');
+    const id = 'edge-' + (edgeSeq++);
+    let pathD, lx, ly;
+
+    if (g.from === g.to) {
+      // 自环
+      const p = pos.get(g.from);
+      const r = 34;
+      pathD = `M ${p.x - 12} ${p.y - nr + 4} C ${p.x - r} ${p.y - nr - r} ${p.x + r} ${p.y - nr - r} ${p.x + 12} ${p.y - nr + 4}`;
+      lx = p.x; ly = p.y - nr - r + 6;
+    } else {
+      const a = pos.get(g.from), b = pos.get(g.to);
+      // 双向边互相错开
+      const reverse = groups.get(`${g.to}\u0000${g.from}`);
+      const hasReverse = Boolean(reverse) && g.from !== g.to;
+      const dir = g.from < g.to ? 1 : -1;
+      const bend = hasReverse ? 40 * dir : 18;
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const px = -dy / d, py = dx / d;
+      const ctrl = { x: mx + px * bend * 2, y: my + py * bend * 2 };
+      const s1 = shorten(a, ctrl, nr + 2);
+      const s2 = shorten(b, ctrl, nr + 4);
+      pathD = `M ${s1.x.toFixed(1)} ${s1.y.toFixed(1)} Q ${ctrl.x.toFixed(1)} ${ctrl.y.toFixed(1)} ${s2.x.toFixed(1)} ${s2.y.toFixed(1)}`;
+      // 标签放在曲线中点
+      const tm1 = 0.5;
+      lx = (1 - tm1) * (1 - tm1) * s1.x + 2 * (1 - tm1) * tm1 * ctrl.x + tm1 * tm1 * s2.x;
+      ly = (1 - tm1) * (1 - tm1) * s1.y + 2 * (1 - tm1) * tm1 * ctrl.y + tm1 * tm1 * s2.y;
+    }
+
+    parts.push(`<path id="${id}" class="dg-edge" d="${pathD}"/>`);
+    const lines = label.split('\n');
+    const labelEls = [];
+    lines.forEach((ln, k) => {
+      const lyy = ly + (k - (lines.length - 1) / 2) * 11 + 4;
+      const tEl = `<text class="dg-label" data-edge="${id}" x="${lx.toFixed(1)}" y="${lyy.toFixed(1)}">${esc(ln)}</text>`;
+      parts.push(`<rect class="dg-label-bg" x="${(lx - ln.length * 3.3 - 3).toFixed(1)}" y="${(lyy - 8.5).toFixed(1)}" width="${(ln.length * 6.6 + 6).toFixed(1)}" height="12" rx="3" fill="#0a0f19" opacity="0.85"/>`);
+      parts.push(tEl);
+      labelEls.push({ text: tEl, line: ln });
+    });
+    items.forEach(({ i }) => app.tiToEdge.set(i, { id, labels: labelEls.map((l) => l.line) }));
+  }
+
+  // 起点箭头
+  const sp = pos.get(tm.startState);
+  if (sp) {
+    const sx = sp.x - nr - 44, sy = sp.y;
+    parts.push(`<path class="dg-start-arrow" d="M ${sx} ${sy} L ${sp.x - nr - 3} ${sy}"/>`);
+    parts.push(`<text class="dg-label" x="${sx}" y="${sy - 8}">start</text>`);
+  }
+
+  // 状态圆
+  states.forEach((s) => {
+    const p = pos.get(s);
+    const cls = ['dg-state'];
+    if (s === tm.acceptState) cls.push('accept');
+    if (s === tm.rejectState) cls.push('reject');
+    if (s === tm.startState) cls.push('start');
+    let inner = `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${nr}"/>`;
+    if (s === tm.acceptState || s === tm.rejectState) {
+      inner += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${nr - 4}" fill="none" stroke-width="1.2" stroke="${s === tm.acceptState ? '#37d399' : '#ff6b6b'}" opacity="0.7"/>`;
+    }
+    parts.push(`<g class="${cls.join(' ')}" data-state="${esc(s)}">${inner}<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}">${esc(s)}</text></g>`);
+  });
+
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = parts.join('');
+}
+
+function highlightDiagram(ti) {
+  document.querySelectorAll('.dg-state.active').forEach((n) => n.classList.remove('active'));
+  document.querySelectorAll('.dg-edge.active').forEach((n) => n.classList.remove('active'));
+  document.querySelectorAll('.dg-label.active').forEach((n) => n.classList.remove('active'));
+  if (ti == null || !app.tm) return;
+  const info = app.tiToEdge.get(ti);
+  if (info) {
+    const e = document.getElementById(info.id);
+    if (e) e.classList.add('active');
+    document.querySelectorAll(`.dg-label[data-edge="${info.id}"]`).forEach((n) => {
+      if (info.labels.includes(n.textContent)) n.classList.add('active');
+    });
+  }
+  const st = app.tm.transitions[ti];
+  if (st) {
+    const g = document.querySelector(`.dg-state[data-state="${CSS.escape(st.state)}"]`);
+    if (g) g.classList.add('active');
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 模拟器                                                              */
+/* ------------------------------------------------------------------ */
+
+function currentInput() { return ui.tapeInput.value; }
+
+function validInputWarning(input) {
+  if (!app.tm || !app.tm.inputAlphabet) return '';
+  const bad = [];
+  for (const ch of String(input)) if (!app.tm.inputAlphabet.includes(ch)) bad.push(ch);
+  return bad.length ? `注意：输入含非 Σ 符号 ${Array.from(new Set(bad)).join(' ')}（仍可运行）` : '';
+}
+
+function loadTape(input) {
+  if (!app.tm) { flashStatus('请先编译一台图灵机', 'err'); return; }
+  app.machine = new TM.Machine(app.tm, String(input == null ? '' : input));
+  ui.log.textContent = '';
+  renderTape(true);
+  renderStats();
+  highlightTransition(null);
+  highlightDiagram(null);
+  const w = validInputWarning(input);
+  logLine(`载入输入带 "${input}"${w ? ' · ' + w : ''}`, w ? 'l-err' : 'l-step');
+  logLine(`初始状态 ${app.machine.state}`, 'l-state');
+}
+
+function stepOnce() {
+  if (!app.machine) { flashStatus('请先编译并载入图灵机', 'err'); return false; }
+  const m = app.machine;
+  const before = m.state;
+  const read = m.read();
+  const stepsBefore = m.steps;
+  const ok = m.step();
+  if (m.steps !== stepsBefore) {
+    // 本步真正执行了一条转移
+    const t = m.lastTransition;
+    const ti = (app.tm.transitions || []).indexOf(t);
+    logLine(`#${m.steps}  ${before} —[读 ${read} → 写 ${t.write}, ${t.move}]→ ${m.state}`, '');
+    highlightTransition(ti >= 0 ? ti : null);
+    highlightDiagram(ti >= 0 ? ti : null);
+  } else {
+    logLine(`#${m.steps}  ${before} —(读 ${read})→ 停机：${m.message}`, m.status === 'accepted' ? 'l-ok' : 'l-err');
+  }
+  renderTape(false);
+  renderStats();
+  return ok;
+}
+
+function undoOnce() {
+  if (!app.machine) return;
+  if (app.machine.undo()) {
+    logLine(`↶ 回退到 ${app.machine.state}（第 ${app.machine.steps} 步）`, 'l-step');
+    renderTape(true);
+    renderStats();
+    highlightTransition(null);
+    highlightDiagram(null);
+  }
+}
+
+function startRun() {
+  if (!app.machine) { flashStatus('请先编译并载入图灵机', 'err'); return; }
+  if (app.running) return;
+  if (app.machine.status === 'accepted' || app.machine.status === 'rejected' || app.machine.status === 'halted') {
+    loadTape(currentInput());
+  }
+  app.running = true;
+  setRunningUI(true);
+  tick();
+}
+
+function tick() {
+  if (!app.running) return;
+  const max = Number($('#speed').value);
+  const delay = Math.max(20, 620 - max * 60); // 1→560ms, 10→20ms
+  app.timer = setTimeout(() => {
+    if (!app.running) return;
+    const cont = stepOnce();
+    if (!cont) {
+      app.running = false;
+      setRunningUI(false);
+      return;
+    }
+    tick();
+  }, delay);
+}
+
+function pauseRun() {
+  app.running = false;
+  clearTimeout(app.timer);
+  app.timer = null;
+  setRunningUI(false);
+}
+
+function runToHalt() {
+  if (!app.machine) { flashStatus('请先编译并载入图灵机', 'err'); return; }
+  if (app.machine.status === 'accepted' || app.machine.status === 'rejected' || app.machine.status === 'halted') loadTape(currentInput());
+  const m = app.machine;
+  let guard = 0;
+  while (guard < 20000) {
+    const before = m.state, read = m.read(), stepsBefore = m.steps;
+    const ok = m.step();
+    if (m.steps !== stepsBefore) {
+      const t = m.lastTransition;
+      logLine(`#${m.steps}  ${before} —[读 ${read} → 写 ${t.write}, ${t.move}]→ ${m.state}`, '');
+    }
+    if (!ok) { logLine(`■ 停机：${m.message}（共 ${m.steps} 步）`, m.status === 'accepted' ? 'l-ok' : 'l-err'); break; }
+    guard++;
+  }
+  if (guard >= 20000) logLine('■ 达到 20000 步上限，疑似死循环', 'l-err');
+  renderTape(false);
+  renderStats();
+  const t = m.lastTransition;
+  if (t) {
+    const ti = (app.tm.transitions || []).indexOf(t);
+    highlightTransition(ti >= 0 ? ti : null);
+    highlightDiagram(ti >= 0 ? ti : null);
+  }
+}
+
+function setRunningUI(on) {
+  $('#btn-run').disabled = on;
+  $('#btn-step').disabled = on;
+}
+
+function renderTape(force) {
+  const m = app.machine;
+  if (!m) { ui.tape.innerHTML = ''; ui.marker.style.left = '0px'; $('#st-output').textContent = '-'; return; }
+  const snap = m.snapshot();
+  const frag = document.createDocumentFragment();
+  let headEl = null;
+  snap.cells.forEach((c) => {
+    const isHead = c.index === m.head;
+    const cell = el('div', 'cell' + (isHead ? ' head' : '') + (c.symbol === m.blank ? ' blank' : ''), c.symbol === m.blank ? '·' : c.symbol);
+    if (isHead) headEl = cell;
+    frag.appendChild(cell);
+  });
+  ui.tape.innerHTML = '';
+  ui.tape.appendChild(frag);
+  if (headEl) {
+    const center = headEl.offsetLeft + headEl.offsetWidth / 2;
+    ui.marker.style.left = center + 'px';
+    const wrap = ui.tapeWrap;
+    if (wrap) {
+      const target = headEl.offsetLeft - wrap.clientWidth / 2 + headEl.offsetWidth / 2;
+      wrap.scrollLeft = Math.max(0, target);
+    }
+  }
+  $('#st-output').textContent = m.output() || '（空）';
+}
+
+function renderStats() {
+  const m = app.machine;
+  const stState = $('#st-state'), stHead = $('#st-head'), stSteps = $('#st-steps'), stResult = $('#st-result');
+  if (!m) { stState.textContent = '-'; stHead.textContent = '-'; stSteps.textContent = '0'; stResult.textContent = '-'; stResult.className = 'stat-v mono'; return; }
+  stState.textContent = m.state;
+  stHead.textContent = String(m.head);
+  stSteps.textContent = String(m.steps);
+  stResult.textContent = TM.statusLabel(m.status) + (m.message ? ' · ' + m.message : '');
+  stResult.className = 'stat-v mono ' + m.status;
+} 
+
+function logLine(text, cls) {
+  const d = el('div', cls || '', text);
+  ui.log.appendChild(d);
+  while (ui.log.childElementCount > 500) ui.log.removeChild(ui.log.firstChild);
+  ui.log.scrollTop = ui.log.scrollHeight;
+}
+
+/* ------------------------------------------------------------------ */
+/* 供静态网页版调用（window.TM_BACKEND 由网页注入）                     */
+/* ------------------------------------------------------------------ */
+if (typeof window !== 'undefined') {
+  window.NL2TM_APP = { refreshHealth: checkHealth, backend: backend };
+}
+
+</script>
+
+<footer class="web-footer">
+  <div>纯前端版 · 你的 API Key 只保存在本机浏览器，直接发往 DeepSeek，不经过任何第三方服务器。</div>
+  <div>知识库：内置 10 类图灵机设计套路与 12 台已用模拟器验证过的参考机；编译结果会在浏览器里跑模拟器逐条验证。</div>
+  <div>遇到 CORS / 401 报错时，检查 Key 是否正确、余额是否充足；难题建议选 <code>deepseek-v4-pro</code>。</div>
+</footer>
+
+</body>
+</html>
