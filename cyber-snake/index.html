@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CYBER SNAKE</title>
+<style>
+  :root { --neon:#00f0ff; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body {
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:radial-gradient(circle at 50% 40%, #101a33 0%, #05060f 60%, #000 100%);
+    font-family:ui-monospace,Consolas,monospace; color:var(--neon);
+    overflow:hidden; user-select:none;
+  }
+  #wrap { position:relative; filter:drop-shadow(0 0 30px rgba(0,240,255,.25)); }
+  canvas { display:block; border-radius:10px; }
+  /* CRT 扫描线 + 暗角：整个炫酷感有一半来自这里 */
+  #wrap::after {
+    content:''; position:absolute; inset:0; border-radius:10px; pointer-events:none;
+    background:
+      repeating-linear-gradient(rgba(0,0,0,.28) 0 1px, transparent 1px 3px),
+      radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.75) 100%);
+  }
+  #hud {
+    width:600px; max-width:92vw; display:flex; justify-content:space-between;
+    font-size:15px; letter-spacing:2px; text-shadow:0 0 10px var(--neon);
+  }
+  #hud b { color:#ff2bd6; text-shadow:0 0 10px #ff2bd6; font-weight:600; }
+  #tip { font-size:12px; opacity:.55; letter-spacing:1px; }
+  #tip b { color:#ff2bd6; text-shadow:0 0 8px #ff2bd6; }
+  #lvl { width:130px; vertical-align:middle; accent-color:#ff2bd6; cursor:pointer; }
+  /* 登录条：默认很淡，鼠标碰上去才亮起来，不抢游戏的视觉 */
+  #auth { font-size:12px; letter-spacing:1px; opacity:.6; min-height:20px; }
+  #auth:hover { opacity:1; }
+  #auth a { color:var(--neon); text-decoration:none; border-bottom:1px dotted currentColor; }
+  #auth button {
+    font:inherit; font-size:12px; letter-spacing:1px; cursor:pointer;
+    background:transparent; color:var(--neon);
+    border:1px solid rgba(0,240,255,.45); border-radius:6px; padding:2px 9px;
+    text-shadow:0 0 8px var(--neon);
+  }
+  #auth button:hover { background:rgba(0,240,255,.14); }
+  #auth input {
+    font:inherit; font-size:12px; background:rgba(0,0,0,.5); color:var(--neon);
+    border:1px solid rgba(0,240,255,.35); border-radius:5px; padding:2px 6px; width:190px;
+  }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <span>SCORE <b id="sc">0</b></span>
+    <span>总分 <b id="tt">0</b></span>
+    <span>BEST <b id="bs">0</b></span>
+  </div>
+  <div id="wrap"><canvas id="c" width="600" height="600"></canvas></div>
+  <div id="tip">
+    <label>难度 <input id="lvl" type="range" min="1" max="10" step="1" value="5"><b id="lvlv">5</b></label>
+    &nbsp;·&nbsp; WASD / 方向键转向 &nbsp;·&nbsp; 空格重开 &nbsp;·&nbsp; 得分 = 分数 × 难度
+  </div>
+  <div id="auth"></div>
+
+<script>
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+const COLS = 24, CELL = 25, W = COLS * CELL;
+const C1 = [0, 240, 255], C2 = [255, 43, 214];           // 蛇身渐变：青 → 品红
+const lerp = (a, b, t) => a + (b - a) * t;
+const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); };
+
+let snake, dir, queue, food, score, dead, ready = true, tickMs, acc, last;
+let runLvl = 5;                                          // 本局开始时的难度，得分按它算
+let total = +(localStorage.cyberSnakeTotal || 0);        // 整体分数（跨局累加）
+let best  = +(localStorage.cyberSnakeBest  || 0);
+let gain  = 0;
+
+const lvl = document.getElementById('lvl');
+lvl.value = Math.min(10, Math.max(1, +localStorage.cyberSnakeLvl || 5));   // 难度 1~10
+const baseTick = () => 200 - lvl.value * 14;                              // 10→60ms(地狱) 1→186ms(悠闲)
+const fastest = () => Math.max(55, baseTick() * .55);                     // 吃食物加速的下限
+
+// 网格画一次到离屏 canvas，每帧贴图
+const grid = document.createElement('canvas'); grid.width = grid.height = W;
+{ const g = grid.getContext('2d');
+  g.strokeStyle = 'rgba(90,130,255,.10)';
+  for (let i = 0; i <= COLS; i++) {
+    g.beginPath(); g.moveTo(i * CELL + .5, 0); g.lineTo(i * CELL + .5, W); g.stroke();
+    g.beginPath(); g.moveTo(0, i * CELL + .5); g.lineTo(W, i * CELL + .5); g.stroke();
+  }
+}
+
+const saveLocal = () => {
+  localStorage.cyberSnakeTotal = total;
+  localStorage.cyberSnakeBest  = best;
+};
+
+function spawn() {
+  const free = [];
+  for (let y = 0; y < COLS; y++) for (let x = 0; x < COLS; x++)
+    if (!snake.some(s => s.x === x && s.y === y)) free.push({ x, y });
+  food = free[Math.random() * free.length | 0] || null;
+}
+
+function reset() {
+  snake = [{ x: 12, y: 12 }, { x: 11, y: 12 }, { x: 10, y: 12 }];
+  dir = { x: 1, y: 0 }; queue = []; score = 0; dead = false; gain = 0;
+  runLvl = +lvl.value;
+  tickMs = baseTick(); acc = 0; last = performance.now();
+  document.getElementById('lvlv').textContent = lvl.value;
+  spawn();
+}
+
+function die() {
+  dead = true;
+  gain = Math.max(0, score) * runLvl;                    // 分数 = 分数 × 难度
+  total += gain;
+  if (gain > best) best = gain;
+  saveLocal();
+  push();                                                // 登录了就顺手存到 GitHub
+}
+
+function step() {
+  if (queue.length) {
+    const d = queue.shift();
+    if (d.x !== -dir.x || d.y !== -dir.y) dir = d;        // 忽略 180° 反向
+  }
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+  if (head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= COLS) return die();
+  const ate = food && head.x === food.x && head.y === food.y;
+  const body = ate ? snake : snake.slice(0, -1);          // 尾巴这帧会移走，可以进
+  if (body.some(s => s.x === head.x && s.y === head.y)) return die();
+  snake.unshift(head);
+  if (ate) { score++; tickMs = Math.max(fastest(), tickMs - 3); spawn(); }
+  else snake.pop();
+}
+
+function draw() {
+  const t = performance.now();
+  ctx.fillStyle = '#05060f'; ctx.fillRect(0, 0, W, W);
+  ctx.drawImage(grid, 0, 0);
+
+  // 呼吸的霓虹边框
+  ctx.save();
+  ctx.strokeStyle = `rgba(0,240,255,${.35 + .25 * Math.sin(t / 400)})`;
+  ctx.lineWidth = 3; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 24;
+  ctx.strokeRect(1.5, 1.5, W - 3, W - 3);
+  ctx.restore();
+
+  // 脉动的食物
+  if (food) {
+    const p = .5 + .5 * Math.sin(t / 100);
+    ctx.save();
+    ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 18 + 16 * p;
+    ctx.fillStyle = '#ff2bd6';
+    ctx.beginPath();
+    ctx.arc(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, CELL * .2 + CELL * .07 * p, 0, 7);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 蛇身
+  const n = snake.length;
+  for (let i = n - 1; i >= 0; i--) {
+    const s = snake[i], k = i / Math.max(1, n - 1);
+    const col = `rgb(${lerp(C1[0], C2[0], k) | 0},${lerp(C1[1], C2[1], k) | 0},${lerp(C1[2], C2[2], k) | 0})`;
+    const pad = i === 0 ? 1.5 : 3;
+    ctx.save();
+    ctx.shadowColor = col; ctx.shadowBlur = i === 0 ? 26 : 13;
+    ctx.fillStyle = col;
+    rr(s.x * CELL + pad, s.y * CELL + pad, CELL - pad * 2, CELL - pad * 2, 6);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  document.getElementById('sc').textContent = score;
+  document.getElementById('tt').textContent = total;
+  document.getElementById('bs').textContent = best;
+
+  if (dead) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, 0, W, W);
+    ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 30; ctx.fillStyle = '#ff2bd6';
+    ctx.font = 'bold 54px ui-monospace,Consolas,monospace';
+    ctx.fillText('GAME OVER', W / 2, W / 2 - 52);
+    ctx.shadowBlur = 14; ctx.shadowColor = '#00f0ff'; ctx.fillStyle = '#00f0ff';
+    ctx.font = '20px ui-monospace,Consolas,monospace';
+    ctx.fillText('SCORE ' + score + '  ×  难度 ' + runLvl, W / 2, W / 2 - 2);
+    ctx.shadowColor = '#ff2bd6'; ctx.fillStyle = '#ff2bd6';
+    ctx.font = 'bold 30px ui-monospace,Consolas,monospace';
+    ctx.fillText('+' + gain + '  →  总分 ' + total, W / 2, W / 2 + 44);
+    ctx.globalAlpha = .5; ctx.shadowBlur = 0; ctx.fillStyle = '#00f0ff';
+    ctx.font = '15px ui-monospace,Consolas,monospace';
+    ctx.fillText('空格重开', W / 2, W / 2 + 84);
+    ctx.restore();
+  } else if (ready) {
+    // 启动前的待机屏：等空格
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, W, W);
+    ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 30; ctx.fillStyle = '#00f0ff';
+    ctx.font = 'bold 46px ui-monospace,Consolas,monospace';
+    ctx.fillText('CYBER SNAKE', W / 2, W / 2 - 34);
+    ctx.globalAlpha = .4 + .6 * (.5 + .5 * Math.sin(t / 220));
+    ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 18; ctx.fillStyle = '#ff2bd6';
+    ctx.font = '22px ui-monospace,Consolas,monospace';
+    ctx.fillText('按 空格 开始', W / 2, W / 2 + 28);
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(0,240,255,.5)';
+    ctx.font = '15px ui-monospace,Consolas,monospace';
+    ctx.fillText('难度 ' + lvl.value + ' / 10  ·  拖动滑条可调', W / 2, W / 2 + 70);
+    ctx.restore();
+  }
+}
+
+function frame(now) {
+  const dt = now - last; last = now;
+  if (!dead && !ready) {
+    acc += dt;
+    while (acc >= tickMs) { acc -= tickMs; step(); if (dead) break; }
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// 输入缓冲 2 步，快速连按不会丢转向
+const KEYS = { arrowup: [0,-1], w: [0,-1], arrowdown: [0,1], s: [0,1],
+               arrowleft: [-1,0], a: [-1,0], arrowright: [1,0], d: [1,0] };
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (KEYS[k]) { e.preventDefault(); lvl.blur(); if (queue.length < 2) queue.push({ x: KEYS[k][0], y: KEYS[k][1] }); }
+  else if (k === ' ' || k === 'enter') {
+    e.preventDefault(); lvl.blur();
+    if (ready) { ready = false; runLvl = +lvl.value; acc = 0; last = performance.now(); }   // 开局
+    else if (dead) reset();
+  }
+});
+
+// 拖动难度：立刻生效（当前局速度重置为该难度基准），并记住选择
+lvl.addEventListener('input', () => {
+  document.getElementById('lvlv').textContent = lvl.value;
+  localStorage.cyberSnakeLvl = lvl.value;
+  if (!dead && !ready) tickMs = baseTick();
+});
+
+/* ─────────── GitHub 登录 + 总分云同步 ───────────
+   为什么是「黏贴 Token」而不是「一键 OAuth」：
+   github.com/login/device/code 和 /login/oauth/access_token 都不返回
+   Access-Control-Allow-Origin，纯静态页（GitHub Pages）在浏览器里调不到；
+   OAuth 网页流又必须带 client_secret，更不能放在前端。所以只剩这条路：
+   用户自备一个只有 gist 权限的 token，之后所有请求都走 api.github.com（它有 CORS）。
+   想要真·一键登录，就得加个 Cloudflare Worker（或任意免费 serverless）拿 client_secret
+   去换 token，前端只收换回来的 token —— 那是唯一的正路。
+
+   ponytail: 分数存在用户自己的私有 gist 里，前端逻辑随便改就能刷，
+   只当个人存档用，别拿它当排行榜（要防刷得把计算挪到服务端）。 */
+const API = 'https://api.github.com';
+const SAVE_FILE = 'cyber-snake.json';                    // gist 里的存档文件名
+const SAVE_DESC = 'cyber-snake-score';                   // 靠它认领自己的存档 gist
+const TOKEN_KEY = 'cyberSnakeToken', GIST_KEY = 'cyberSnakeGist';
+
+let token = localStorage[TOKEN_KEY] || '';
+let gistId = localStorage[GIST_KEY] || '';
+let user = '', note = '';
+
+async function api(path, opts) {
+  opts = opts || {};
+  const r = await fetch(API + path, {
+    method: opts.method || 'GET',
+    headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + token,
+               ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+    body: opts.body,
+  });
+  if (!r.ok) {
+    const m = await r.json().catch(() => ({}));
+    throw new Error(m.message || ('HTTP ' + r.status));
+  }
+  return r.status === 204 ? null : r.json();
+}
+
+// 拉存档：认得就覆盖本地，认不得就用本地分数新建一个
+async function pull() {
+  const mine = await api('/user');
+  user = mine.login;
+  // ponytail: 只翻前 100 个 gist，够用；存档再多到翻不完就改用固定 gist id
+  const hit = (await api('/gists?per_page=100')).find(g => g.files && g.files[SAVE_FILE]);
+  if (hit) {
+    gistId = hit.id;
+    const full = await api('/gists/' + gistId);
+    let d = {};
+    try { d = JSON.parse(full.files[SAVE_FILE].content || '{}'); } catch (e) { d = {}; }
+    total = +d.total || 0;
+    best = Math.max(best, +d.best || 0);
+  } else {
+    const made = await api('/gists', { method: 'POST', body: JSON.stringify({
+      description: SAVE_DESC, public: false,
+      files: { [SAVE_FILE]: { content: JSON.stringify({ total, best }) } },
+    }) });
+    gistId = made.id;
+  }
+  localStorage[GIST_KEY] = gistId;
+}
+
+// 推存档：没登录就只落 localStorage，静默跳过
+async function push() {
+  saveLocal();
+  if (!token || !gistId) return;
+  setNote('保存中…');
+  try {
+    await api('/gists/' + gistId, { method: 'PATCH', body: JSON.stringify({
+      files: { [SAVE_FILE]: { content: JSON.stringify({ total, best }) } },
+    }) });
+    setNote('已同步');
+  } catch (e) {
+    setNote('保存失败：' + e.message);
+  }
+}
+
+function setNote(t) { note = t; paint(); }
+
+function paint() {
+  const el = document.getElementById('auth');
+  if (user) {
+    el.innerHTML = '🐙 <b style="color:#ff2bd6">@' + user + '</b> · ' + note +
+      ' <button id="aout">退出</button>';
+    document.getElementById('aout').onclick = () => {
+      token = user = gistId = '';
+      localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(GIST_KEY);
+      setNote('');
+    };
+    return;
+  }
+  el.innerHTML = '<button id="ain">用 GitHub 账号登录保存总分</button> ' + note;
+  document.getElementById('ain').onclick = () => {
+    el.innerHTML =
+      '<a href="https://github.com/settings/tokens/new?scopes=gist&description=CYBER+SNAKE" target="_blank" rel="noopener">① 生成一个 gist 权限的 Token</a>' +
+      ' &nbsp;② 黏贴到这儿 <input id="tk" type="password" size="20" autocomplete="off" spellcheck="false" placeholder="ghp_…">' +
+      ' <button id="aok">连接</button> <button id="ano">取消</button>';
+    document.getElementById('ano').onclick = () => { setNote(''); };
+    document.getElementById('aok').onclick = async () => {
+      const v = document.getElementById('tk').value.trim();   // 先取值，paint() 会把这个输入框抹掉
+      if (!v) return;
+      token = v; setNote('连接中…');
+      try {
+        await pull();
+        localStorage[TOKEN_KEY] = token;
+        setNote('已同步');
+      } catch (e) {
+        token = user = gistId = '';
+        localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(GIST_KEY);
+        setNote('连接失败：' + e.message);
+      }
+    };
+  };
+}
+
+/* ─────────── 自检：控制台无红色报错即为通过 ─────────── */
+(function selfTest() {
+  reset(); snake = [{x:0,y:5},{x:1,y:5}]; dir = {x:-1,y:0}; step();
+  console.assert(dead === true, '撞墙应判定死亡');
+  reset(); snake = [{x:5,y:5},{x:4,y:5}]; dir = {x:1,y:0}; food = {x:6,y:5}; score = 0;
+  step();
+  console.assert(!dead && snake.length === 3 && score === 1, '吃食物应增长并加分');
+  reset(); snake = [{x:5,y:5},{x:4,y:5}]; dir = {x:1,y:0}; queue = [{x:-1,y:0}]; step();
+  console.assert(snake[0].x === 6 && snake[0].y === 5, '180° 反向应被忽略');
+  // 4. 难度映射：越高越快，且重开时真的用上了当前难度
+  const keep = lvl.value; lvl.value = 1; const slow = baseTick();
+  lvl.value = 10; const fast = baseTick();
+  console.assert(fast < slow && slow <= 200 && fast >= 60, '难度越高 tick 越小且不越界');
+  lvl.value = keep; reset();
+  console.assert(tickMs === baseTick(), '重开应套用当前难度');
+  // 5. 得分 = 分数 × 难度，并写进总分（用完后把总分还原，别让自检污染真实存档）
+  const tKeep = total, bKeep = best;
+  lvl.value = 3; reset(); score = 5; const t0 = total; die();
+  console.assert(total === t0 + 15 && gain === 15, '得分应为 分数 × 难度');
+  console.assert(best >= 15, 'BEST 应记录加权后的得分');
+  total = tKeep; best = bKeep; saveLocal();
+  lvl.value = keep; reset();
+})();
+
+requestAnimationFrame(frame);
+paint();
+if (token) {                                             // 上次登录过：静默重连
+  (async () => {
+    try { await pull(); setNote('已同步'); }
+    catch (e) { token = user = gistId = ''; localStorage.removeItem(TOKEN_KEY); setNote(''); paint(); }
+  })();
+}
+</script>
+</body>
+</html>
