@@ -155,18 +155,7 @@
       }
       .avatar:hover { transform: scale(1.05); }
       .hero-text { flex: 1; min-width: 260px; }
-      .hero-kicker {
-        display: inline-flex; align-items: center; gap: 8px;
-        font-size: 0.78rem; font-weight: 500; letter-spacing: 0.14em;
-        text-transform: uppercase; color: var(--accent);
-        margin-bottom: 12px;
-      }
-      .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-3); box-shadow: 0 0 0 0 var(--accent-3); animation: pulse 2.2s infinite; }
-      @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 var(--glow-3); }
-        70% { box-shadow: 0 0 0 9px transparent; }
-        100% { box-shadow: 0 0 0 0 transparent; }
-      }
+
       .hero h1 {
         font-size: clamp(2rem, 5.4vw, 3.1rem);
         font-weight: 900; line-height: 1.12; letter-spacing: -0.02em;
@@ -433,7 +422,7 @@
 
       /* ==================== academic layer ==================== */
       body { -webkit-font-smoothing: antialiased; }
-      h1, h2, h3, .brand-name, .section-title, .edu-school, .award-title, .project-title, .repo-link, .post-name {
+      h1, h2, h3, .brand-name, .section-title, .repo-link, .post-name {
         font-family: var(--font-serif);
       }
       .wrap { max-width: 960px; padding: 0 26px 80px; }
@@ -470,8 +459,6 @@
       .avatar-ring::before { inset: -5px; background: linear-gradient(140deg, var(--accent), var(--accent-2)); animation: none; }
       .avatar { width: 104px; height: 104px; border-width: 4px; }
       .avatar:hover { transform: none; }
-      .hero-kicker { font-family: var(--font-mono); font-size: 0.71rem; letter-spacing: 0.2em; color: var(--accent); }
-      .pulse-dot { background: var(--accent-2); animation: none; }
       .hero h1 { font-size: clamp(1.9rem, 4.6vw, 2.7rem); letter-spacing: -0.005em; }
       .grad-text {
         background: none; -webkit-background-clip: initial; background-clip: initial;
@@ -493,28 +480,6 @@
         margin-left: auto; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 400;
         letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint);
       }
-
-      /* education, awards & projects: bar rows */
-      .edu-list, .award-list, .project-list { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-      .edu-item, .award-item, .project-item {
-        display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 20px; align-items: center;
-        padding: 15px 20px 15px 17px;
-        background: var(--surface);
-        box-shadow: inset 3px 0 0 var(--accent);
-        border-radius: 3px;
-        transition: background 0.25s var(--ease);
-      }
-      .edu-item.is-past, .award-item { box-shadow: inset 3px 0 0 var(--accent-2); }
-      .edu-item:hover, .award-item:hover, .project-item:hover { background: var(--surface-strong); }
-      .edu-period, .award-label { font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-dim); }
-      .edu-period { white-space: nowrap; }
-      .edu-now { color: var(--accent); }
-      .edu-body, .award-body, .project-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; min-width: 0; }
-      .edu-school, .award-title, .project-title { font-size: 1.02rem; font-weight: 700; }
-      .edu-degree, .award-detail, .project-detail { font-size: 0.86rem; color: var(--text-dim); line-height: 1.7; }
-      .edu-major { margin-left: auto; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-faint); white-space: nowrap; }
-      .edu-major b { color: var(--text); font-weight: 500; }
-      .project-body { flex-direction: column; align-items: flex-start; }
 
       /* toolbar: underline tabs */
       .toolbar { margin: 26px 0 22px; gap: 12px; }
@@ -590,8 +555,6 @@
 
       @media (max-width: 620px) {
         .tabs { justify-content: flex-start; }
-        .edu-item, .award-item, .project-item { grid-template-columns: 1fr; gap: 6px; padding: 13px 16px; }
-        .edu-major { margin-left: 0; }
         .section-title .en { display: none; }
         #panel-repos .card {
           grid-template-columns: 1fr;
@@ -639,7 +602,6 @@
           />
         </div>
         <div class="hero-text">
-          <div class="hero-kicker"><span class="pulse-dot"></span> Xi'an Jiaotong University</div>
           <h1>你好，我是 <span class="grad-text">8cheh</span></h1>
           <p>个人学术主页 —— 在此整理我的开源仓库、课程资料与文档。内容持续更新，支持实时检索与在线预览。</p>
           <div class="hero-stats">
@@ -649,91 +611,6 @@
           </div>
         </div>
       </header>
-
-      <!-- education -->
-      <section class="section" id="education">
-        <h2 class="section-title">教育经历<span class="en">Education</span></h2>
-        <ol class="edu-list">
-          <li class="edu-item">
-            <span class="edu-period">2026.09 — <span class="edu-now">Present</span></span>
-            <span class="edu-body">
-              <span class="edu-school">Xi'an Jiaotong University (XJTU)</span>
-              <span class="edu-degree">Undergraduate Study · Bachelor's Degree</span>
-              <span class="edu-major">Major: <b>Embodied Artificial Intelligence</b></span>
-            </span>
-          </li>
-          <li class="edu-item is-past">
-            <span class="edu-period">2024.09 — 2026.06</span>
-            <span class="edu-body">
-              <span class="edu-school">Xi'an Jiaotong University (XJTU)</span>
-              <span class="edu-degree">Preparatory Program</span>
-              <span class="edu-major">Major: <b>Gifted Young Program</b></span>
-            </span>
-          </li>
-        </ol>
-      </section>
-
-      <!-- awards -->
-      <section class="section" id="awards">
-        <h2 class="section-title">奖项<span class="en">Awards</span></h2>
-        <ol class="award-list">
-          <li class="award-item">
-            <span class="award-label">CUPT</span>
-            <span class="award-body">
-              <span class="award-title">西北地区赛论文赛一等奖</span>
-              <span class="award-detail">第一作者</span>
-            </span>
-          </li>
-          <li class="award-item">
-            <span class="award-label">CUPT</span>
-            <span class="award-body">
-              <span class="award-title">西北地区赛团体二等奖</span>
-              <span class="award-detail">个人最佳反方</span>
-            </span>
-          </li>
-          <li class="award-item">
-            <span class="award-label">码蹄杯</span>
-            <span class="award-body">
-              <span class="award-title">国赛三等奖</span>
-            </span>
-          </li>
-        </ol>
-      </section>
-
-      <!-- projects -->
-      <section class="section" id="projects">
-        <h2 class="section-title">项目经历<span class="en">Projects</span></h2>
-        <ol class="project-list">
-          <li class="project-item">
-            <span class="award-label">校级大创</span>
-            <span class="project-body">
-              <span class="project-title">《基于多模态的生理监测》</span>
-              <span class="project-detail">负责算法开发和模拟实验</span>
-            </span>
-          </li>
-          <li class="project-item">
-            <span class="award-label">省级大创</span>
-            <span class="project-body">
-              <span class="project-title">《疏水表面结晶的去除方法》</span>
-              <span class="project-detail">项目负责人，负责模拟仿真与真实数据测量</span>
-            </span>
-          </li>
-          <li class="project-item">
-            <span class="award-label">独立算法项目</span>
-            <span class="project-body">
-              <span class="project-title">AngleDrop</span>
-              <span class="project-detail">负责软件开发与封装测试</span>
-            </span>
-          </li>
-          <li class="project-item">
-            <span class="award-label">视觉与具身智能</span>
-            <span class="project-body">
-              <span class="project-title">《基于新型视觉的具身智能》</span>
-              <span class="project-detail">负责 VLA 相关算法开发和实机测试</span>
-            </span>
-          </li>
-        </ol>
-      </section>
 
       <!-- toolbar -->
       <div class="toolbar">
